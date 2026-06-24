@@ -1,0 +1,134 @@
+* {
+    font-family: "Segoe UI", "Inter", sans-serif;
+    font-size: 10pt;
+    color: #d6d6d6;
+}
+
+QWidget {
+    background-color: #353735;
+}
+
+QFrame {
+    background-color: #3e403e;
+    border: 1px solid #1c1d1c;
+    border-radius: 3px;
+}
+
+QGroupBox {
+    background-color: #3e403e;
+    border: 1px solid #1c1d1c;
+    border-radius: 3px;
+    margin-top: 12px;
+    padding-top: 14px;
+}
+
+QGroupBox::title {
+    color: #f39a21;
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 8px;
+    padding: 0 4px;
+}
+
+QLabel {
+    background: transparent;
+    color: #d0d0d0;
+}
+
+QLineEdit {
+    background-color: #2f312f;
+    border: 1px solid #555;
+    border-top-color: #151515;
+    border-left-color: #151515;
+    border-radius: 3px;
+    padding: 2px 5px;
+    selection-background-color: #f39a21;
+}
+
+QLineEdit:focus {
+    border: 1px solid #f39a21;
+}
+
+QPushButton {
+    background-color: #454745;
+    border: 1px solid #1c1d1c;
+    border-radius: 3px;
+    padding: 4px 8px;
+}
+
+QPushButton:hover {
+    background-color: #505250;
+}
+
+QPushButton:pressed {
+    background-color: #303230;
+}
+
+QSlider::groove:horizontal {
+    height: 4px;
+    background: #5a5b5a;
+    border-radius: 2px;
+}
+
+QSlider::sub-page:horizontal {
+    background: #5a5b5a;
+    border-radius: 2px;
+}
+
+QSlider::add-page:horizontal {
+    background: #5a5b5a;
+    border-radius: 2px;
+}
+
+QSlider::handle:horizontal {
+    background: #f0a000;
+    width: 14px;
+    height: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+}
+
+QSlider::handle:horizontal:hover {
+    background: #ffb22a;
+}
+
+
+QComboBox, QSpinBox {
+    background-color: #2f312f;
+    border: 1px solid #555856;
+    border-top-color: #1c1d1c;
+    border-left-color: #1c1d1c;
+    border-radius: 3px;
+    padding: 2px 5px;
+}
+
+QComboBox:focus, QSpinBox:focus {
+    border: 1px solid #f39a21;
+}
+
+QTabWidget::pane {
+    border: 1px solid #1c1d1c;
+    background-color: #353735;
+}
+
+QTabBar::tab
+{
+    background: #303030;
+    color: #D0D0D0;
+    padding: 8px 16px;
+}
+
+QTabBar::tab:selected
+{
+    background: #505050;
+    color: #D8B85A;
+    border-bottom: 3px solid #D8B85A;
+}
+
+QRadioButton, QCheckBox {
+    background: transparent;
+}
+
+QCheckBox:checked {
+    color: #f39a21;
+}
