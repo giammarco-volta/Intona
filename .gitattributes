@@ -1,0 +1,22 @@
+# Normalize text files in the repository
+* text=auto
+
+# C/C++ and build files use LF in the repository
+*.cpp text eol=lf
+*.c text eol=lf
+*.h text eol=lf
+*.hpp text eol=lf
+*.cmake text eol=lf
+CMakeLists.txt text eol=lf
+*.json text eol=lf
+*.qrc text eol=lf
+*.qml text eol=lf
+*.js text eol=lf
+*.qss text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.pdf binary
