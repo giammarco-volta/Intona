@@ -4,8 +4,31 @@ project(Intona LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Pdf PdfWidgets)
+find_package(Qt6 REQUIRED COMPONENTS
+  Core
+  Gui
+  Widgets
+  Pdf
+  PdfWidgets
+  Qml
+  Quick
+  QuickControls2
+)
+
 qt_standard_project_setup()
+
+add_subdirectory(
+  "${CMAKE_CURRENT_SOURCE_DIR}/external/Common"
+  "${CMAKE_CURRENT_BINARY_DIR}/external/Common"
+)
+
+if(QT_KNOWN_POLICY_QTP0002)
+  qt_policy(SET QTP0002 NEW)
+endif()
+
+if(QT_KNOWN_POLICY_QTP0005)
+  qt_policy(SET QTP0005 NEW)
+endif()
 
 set(INTONA_SOURCES
   src/main.cpp
@@ -24,23 +47,10 @@ set(INTONA_SOURCES
   src/TuningCenterFinder.cpp
   src/About.h
 
-  ../Common/src/ui/widgets/MidiChannelSelector.h
-  ../Common/src/ui/widgets/MidiChannelSelector.cpp
-  ../Common/src/ui/widgets/ManualWidget.h
-  ../Common/src/ui/widgets/ManualWidget.cpp
-
-  ../Common/src/midi/MidiMessage.h
-
-  ../Common/src/midi/IMidiOut.h
-  ../Common/src/midi/MidiOutFactory.h
-  ../Common/src/midi/MidiOutFactory.cpp
-
-  ../Common/src/midi/IMidiIn.h
-  ../Common/src/midi/MidiInFactory.h
-  ../Common/src/midi/MidiInFactory.cpp
-
-  ../Common/src/midi/MidiMonoIn.h
-  src/midi/MidiMonoIn.cpp
+  external/Common/src/ui/widgets/MidiChannelSelector.h
+  external/Common/src/ui/widgets/MidiChannelSelector.cpp
+  external/Common/src/ui/widgets/ManualWidget.h
+  external/Common/src/ui/widgets/ManualWidget.cpp
 
   src/ui/tabs/MidiSettingsTab.h
   src/ui/tabs/MidiSettingsTab.cpp
@@ -55,23 +65,11 @@ set(INTONA_SOURCES
   src/ui/widgets/ConfigPresetListWidget.cpp
 )
 
-if(WIN32)
-  list(APPEND INTONA_SOURCES
-    ../Common/src/midi/MidiOut_WinMM.h
-    ../Common/src/midi/MidiOut_WinMM.cpp
-    ../Common/src/midi/MidiIn_WinMM.h
-    ../Common/src/midi/MidiIn_WinMM.cpp
-  )
-else()
-  list(APPEND INTONA_SOURCES
-    ../Common/src/midi/MidiOut_Stub.h
-    ../Common/src/midi/MidiOut_Stub.cpp
-    ../Common/src/midi/MidiIn_Stub.h
-    ../Common/src/midi/MidiIn_Stub.cpp
-  )
-endif()
-
 if(ANDROID)
+  set(QT_ANDROID_COMPILE_SDK_VERSION 34)
+  set(QT_ANDROID_MIN_SDK_VERSION 23)
+  set(QT_ANDROID_TARGET_SDK_VERSION 34)
+
   qt_add_executable(Intona
     MANUAL_FINALIZATION
     ${INTONA_SOURCES}
@@ -81,6 +79,19 @@ else()
     ${INTONA_SOURCES}
   )
 endif()
+
+qt_add_qml_module(Intona
+  URI Intona
+  VERSION 1.0
+  IMPORTS
+    TARGET NaadaLabUi
+  RESOURCE_PREFIX /qt/qml
+  NO_RESOURCE_TARGET_PATH
+  QML_FILES
+    src/qml/Main.qml
+    src/qml/navigation/NavigationShell.qml
+    src/qml/pages/PlaceholderPage.qml
+)
 
 set_source_files_properties(
   src/resources/qdarkstyle/darkstyle.qss
@@ -105,10 +116,19 @@ qt_add_resources(Intona IntonaResources
     src/resources/manual/IntonaUserManual.pdf
 )
 
-target_link_libraries(Intona PRIVATE Qt6::Widgets Qt6::Pdf Qt6::PdfWidgets)
+target_link_libraries(Intona PRIVATE
+  NaadaLab::Midi
+  NaadaLab::Ui
+  Qt6::Widgets
+  Qt6::Pdf
+  Qt6::PdfWidgets
+  Qt6::Qml
+  Qt6::Quick
+  Qt6::QuickControls2
+)
 
-if(WIN32)
-  target_link_libraries(Intona PRIVATE winmm)
-endif()
+target_include_directories(Intona PRIVATE
+  "${CMAKE_CURRENT_SOURCE_DIR}/external/Common/src/ui/widgets"
+)
 
 qt_finalize_executable(Intona)

@@ -19,7 +19,7 @@
 #include "ui/widgets/NtetCircleWidget.h"
 #include "ui/widgets/ConfigPresetListWidget.h"
 
-#include "../../Common/src/ui/widgets/ManualWidget.h"
+#include "ManualWidget.h"
 
 #include "CentsUtilities.hpp"
 #include "StringUtilities.hpp"

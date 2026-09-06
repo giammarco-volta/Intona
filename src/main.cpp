@@ -1,21 +1,38 @@
 #include <QApplication>
+#include <QCoreApplication>
+#include <QQmlApplicationEngine>
+
 #include "MainWindow.h"
 #include "StyleUtils.h"
-#include <QFile>
-#include <QDir>
-
-// IMPORTANTISSIMO:
-#include <QtCore/qresource.h>   // oppure #include <QResource>
 
 int main(int argc, char** argv)
 {
   QApplication app(argc, argv);
 
-  //app.setStyle("Universal");   // IMPORTANTISSIMO
-  app.setStyle("Fusion");   // IMPORTANTISSIMO
-  app.setStyleSheet(loadStyleSheet(":/qdarkstyle/darkstyle.qss"));
+  if (QCoreApplication::arguments().contains("--legacy-widgets"))
+  {
+    app.setStyle("Fusion");
+    app.setStyleSheet(loadStyleSheet(":/qdarkstyle/darkstyle.qss"));
 
-  MainWindow w;
-  w.show();
+    MainWindow window;
+    window.show();
+
+    return app.exec();
+  }
+
+  QQmlApplicationEngine engine;
+
+  QObject::connect(
+    &engine,
+    &QQmlApplicationEngine::objectCreationFailed,
+    &app,
+    []()
+    {
+      QCoreApplication::exit(-1);
+    },
+    Qt::QueuedConnection);
+
+  engine.loadFromModule("Intona", "Main");
+
   return app.exec();
 }

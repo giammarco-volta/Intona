@@ -1,8 +1,8 @@
 #pragma once
 
 #include <QWidget>
-#include "../../../../Common/src/midi/IMidiOut.h"
-#include "../../../../Common/src/midi/MidiMonoIn.h"
+#include "IMidiOut.h"
+#include "MidiMonoIn.h"
 
 #include "../../Config.hpp"
 

@@ -1,0 +1,4 @@
+[submodule "external/Common"]
+	path = external/Common
+	url = https://github.com/giammarco-volta/Common.git
+	branch = refactor/common-library

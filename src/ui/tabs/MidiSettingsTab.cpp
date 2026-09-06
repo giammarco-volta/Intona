@@ -20,10 +20,33 @@
 
 #include "../../MainWindow.h"
 
-#include "../../../../Common/src/midi/MidiOutFactory.h"
-#include "../../../../Common/src/midi/MidiInFactory.h"
-#include "../../../../Common/src/midi/MidiMessage.h"
-#include "../../../../Common/src/ui/widgets/MidiChannelSelector.h"
+#include "MidiOutFactory.h"
+#include "MidiInFactory.h"
+#include "MidiMessage.h"
+#include "MidiChannelSelector.h"
+
+
+namespace
+{
+MidiIn_MonoInterpreter::Configuration makeMidiInConfiguration()
+{
+  MidiIn_MonoInterpreter::Configuration configuration;
+
+  configuration.ignoredControlChanges.set(0);
+  configuration.ignoredControlChanges.set(7);
+  configuration.ignoredControlChanges.set(10);
+  configuration.ignoredControlChanges.set(11);
+  configuration.ignoredControlChanges.set(32);
+  configuration.ignoredControlChanges.set(71);
+  configuration.ignoredControlChanges.set(74);
+
+  configuration.ignoreProgramChanges = true;
+  configuration.noteOffStatePolicy =
+    MidiIn_MonoInterpreter::NoteOffStatePolicy::ClearCurrentNote;
+
+  return configuration;
+}
+}
 
 
 //--------------------------------------------------
@@ -49,9 +72,9 @@ void setupTrackCheckBox(QCheckBox* cb)
   update();
 }
 
-//------------------------------------------------------------------------------------------------------------------------
-MidiSettingsTab::MidiSettingsTab(MainWindow* parent) : QWidget(parent), midiOut_(createMidiOut()), midiIn_(createMidiIn())
-//------------------------------------------------------------------------------------------------------------------------
+//-------------------------------------------------------------------------------------------------------------------------------------------------
+MidiSettingsTab::MidiSettingsTab(MainWindow* parent) : QWidget(parent), midiOut_(createMidiOut()), midiIn_(createMidiIn(makeMidiInConfiguration()))
+//-------------------------------------------------------------------------------------------------------------------------------------------------
 {
   auto* mainLayout = new QVBoxLayout(this);
   mainLayout->setContentsMargins(10, 10, 10, 10);
@@ -217,7 +240,7 @@ void MidiSettingsTab::connectMidiIn(uint8_t deviceIndex)
 //------------------------------------------------------
 {
   if (!midiIn_)
-    midiIn_ = createMidiIn();
+    midiIn_ = createMidiIn(makeMidiInConfiguration());
 
   if (!midiIn_)
   {
@@ -314,7 +337,7 @@ void MidiSettingsTab::onRefreshInPorts()
   if (!inPorts_) return;
 
   if (!midiIn_)
-    midiIn_ = createMidiIn();
+    midiIn_ = createMidiIn(makeMidiInConfiguration());
 
   inPorts_->clear();
 
