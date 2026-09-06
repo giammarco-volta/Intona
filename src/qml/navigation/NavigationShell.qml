@@ -1,11 +1,36 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Controls
 
 import Intona
 import NaadaLab.Ui as SharedUi
 
 Item {
     id: root
+
+    readonly property int layoutClass:
+        ApplicationWindow.window
+            ? ApplicationWindow.window.layoutClass
+            : SharedUi.UiMetrics.Desktop
+
+    readonly property bool mobileLayout:
+        layoutClass === SharedUi.UiMetrics.Phone
+
+    readonly property bool tabletLayout:
+        layoutClass === SharedUi.UiMetrics.Tablet
+
+    readonly property real railWidth:
+        mobileLayout ? 52 : tabletLayout ? 60 : 64
+
+    readonly property real sectionButtonHeight:
+        Math.min(mobileLayout ? 52 : 64,
+                 height / Math.max(1, sections.length))
+
+    readonly property real sectionIconScale:
+        Math.min(1, sectionButtonHeight / 56)
+
+    readonly property real pageTitleFontSize:
+        mobileLayout ? 18 : tabletLayout ? 22 : 24
 
     property string currentSection: "surface"
 
@@ -52,17 +77,33 @@ Item {
         spacing: 0
 
         SharedUi.NavigationRail {
-            Layout.preferredWidth: 64
-            Layout.minimumWidth: 64
-            Layout.maximumWidth: 64
+            railWidth: root.railWidth
+
+            Layout.preferredWidth: root.railWidth
+            Layout.minimumWidth: root.railWidth
+            Layout.maximumWidth: root.railWidth
             Layout.fillHeight: true
 
             sections: root.sections
             currentSection: root.currentSection
-            buttonHeight: 64
+            buttonHeight: root.sectionButtonHeight
+            iconScale: root.sectionIconScale
 
             onSectionActivated: function(section) {
                 root.currentSection = section
+            }
+
+            onSectionPressAndHold: function(section) {
+                if (!DebugBuild || section !== "about")
+                    return
+
+                const appWindow = ApplicationWindow.window
+
+                if (appWindow
+                        && appWindow.viewportSimulationEnabled
+                        && appWindow.cycleViewportProfile) {
+                    appWindow.cycleViewportProfile()
+                }
             }
         }
 
@@ -74,18 +115,22 @@ Item {
 
             PlaceholderPage {
                 pageTitle: qsTr("Tuning Surface")
+                titleFontSize: root.pageTitleFontSize
             }
 
             PlaceholderPage {
                 pageTitle: qsTr("MIDI Setup")
+                titleFontSize: root.pageTitleFontSize
             }
 
             PlaceholderPage {
                 pageTitle: qsTr("Manual")
+                titleFontSize: root.pageTitleFontSize
             }
 
             PlaceholderPage {
                 pageTitle: qsTr("About")
+                titleFontSize: root.pageTitleFontSize
             }
         }
     }

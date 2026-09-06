@@ -6,6 +6,7 @@ Rectangle {
     id: root
 
     property string pageTitle: ""
+    property real titleFontSize: 24
 
     color: SharedUi.Theme.background
 
@@ -14,7 +15,7 @@ Rectangle {
 
         text: root.pageTitle
         color: SharedUi.Theme.text
-        font.pixelSize: 24
+        font.pixelSize: root.titleFontSize
         font.bold: true
     }
 }

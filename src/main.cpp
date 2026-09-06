@@ -1,6 +1,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QQmlApplicationEngine>
+#include <QQmlContext>
 
 #include "MainWindow.h"
 #include "StyleUtils.h"
@@ -31,6 +32,14 @@ int main(int argc, char** argv)
       QCoreApplication::exit(-1);
     },
     Qt::QueuedConnection);
+
+#ifdef NDEBUG
+  constexpr bool debugBuild = false;
+#else
+  constexpr bool debugBuild = true;
+#endif
+
+  engine.rootContext()->setContextProperty("DebugBuild", debugBuild);
 
   engine.loadFromModule("Intona", "Main");
 

@@ -131,4 +131,19 @@ target_include_directories(Intona PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/external/Common/src/ui/widgets"
 )
 
+if(ANDROID)
+  set_property(TARGET Intona PROPERTY
+    QT_ANDROID_PACKAGE_SOURCE_DIR
+    "${CMAKE_CURRENT_SOURCE_DIR}/android"
+  )
+
+  set_property(TARGET Intona PROPERTY
+    QT_ANDROID_VERSION_CODE 2
+  )
+
+  set_property(TARGET Intona PROPERTY
+    QT_ANDROID_VERSION_NAME "1.0"
+  )
+endif()
+
 qt_finalize_executable(Intona)
