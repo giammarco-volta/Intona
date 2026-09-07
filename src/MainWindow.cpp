@@ -25,6 +25,7 @@
 #include "StringUtilities.hpp"
 #include "Chords.h"
 #include "TuningCenterFinder.h"
+#include "tuning/TuningAlgorithms.h"
 #include "About.h"
 
 //#define CONSIDER_QUARTAL_CHORDS
@@ -75,16 +76,6 @@ std::optional<double> findGlobalOffsetCents(const Config& cfg, const NtetMapping
     return std::nullopt;
 
   return std::clamp(preferredOffset, lo, hi);
-}
-
-//----------------------------------------------------------------------------
-void MainWindow::rebuildConfigMask(Config& config, const NtetMapping& mapping)
-//----------------------------------------------------------------------------
-{
-  config.mask = 0;
-
-  for (int key = 0; key < 12; ++key)
-    config.mask |= valueToPoolBit(config.valueForKey[key]);
 }
 
 //---------------------------------------------------------------------------
@@ -322,7 +313,7 @@ void MainWindow::onTuningCenterSelected(int8_t tuningCenter)
   setConfig(chooseConfigThroughTuningCenter(tuningCenter), kNtetMappings[edoIdx_]);
   applyCurrentConfig(midiSettingTab_->MidiOut(), false, -1);
 
-  if (!isKeyCompatibleWithTuningCenter(currentConfig_.tuningCenter, currentKeyTonic_, currentKeyIsMinor_))
+  if (!Intona::Tuning::isKeyCompatibleWithTuningCenter(currentConfig_.tuningCenter, currentKeyTonic_, currentKeyIsMinor_))
   {
     currentKeyTonic_ = Config::invalid;
     surfaceTab_->getNtetCircleWidget()->setKey(currentKeyTonic_, currentKeyIsMinor_);
@@ -778,73 +769,11 @@ static uint16_t keyMaskFor(int16_t tonic5, bool isMinor)
   return isMinor ? minorKeyMasks[tonic12] : majorKeyMasks[tonic12];
 }
 
-//-----------------------------------------------------------------------------
-static bool pressedMaskContainsFifth(uint16_t keyPressedMask12, int16_t value5)
-//-----------------------------------------------------------------------------
-{
-  return (keyPressedMask12 & (uint16_t{ 1 } << fifthToSemitone(value5))) != 0;
-}
-
-//-----------------------------------------------------------------------------------------------------------------------------
-std::optional<MainWindow::KeyChoice> MainWindow::inferKeyFromDominantSignature(uint16_t keyPressedMask12, const Config& config)
-//-----------------------------------------------------------------------------------------------------------------------------
-{
-  for (int a = 0; a < 12; ++a)
-  {
-    if (!hasKey12(keyPressedMask12, a))
-      continue;
-
-    for (int b = a + 1; b < 12; ++b)
-    {
-      if (!hasKey12(keyPressedMask12, b))
-        continue;
-
-      if ((b - a) != 6)
-        continue;
-
-      const int8_t lower5 = config.valueForKey[a];
-      const int8_t upper5 = config.valueForKey[b];
-      const int8_t diff5 = upper5 - lower5;
-
-      int8_t majorKeyTonic5 = 0;
-
-      if (diff5 == -6)
-      {
-        // diminished fifth: lower note is the root of the diminished fifth.
-        // Example: D-Ab -> key tonic Eb.
-        majorKeyTonic5 = lower5 - 5;
-      }
-      else if (diff5 == 6)
-      {
-        // augmented fourth: upper note resolves upward by minor second.
-        // Example: C-F# -> key tonic G.
-        majorKeyTonic5 = upper5 - 5;
-      }
-      else
-      {
-        continue;
-      }
-
-      const int8_t relativeMinorTonic5 = majorKeyTonic5 + 3;
-      const int8_t relativeMinorLeadingTone5 = relativeMinorTonic5 + 5;
-
-      if (pressedMaskContainsFifth(keyPressedMask12, relativeMinorLeadingTone5))
-      {
-        return KeyChoice{ relativeMinorTonic5, true };
-      }
-
-      return KeyChoice{ majorKeyTonic5, false };
-    }
-  }
-
-  return std::nullopt;
-}
-
 //----------------------------------------------------------------------------------------------------------------------------------------------------
 std::optional<MainWindow::KeyChoice> MainWindow::chooseBestLocalKey(uint16_t pressedKeyMask12, const Config& config, const NtetMapping& mapping) const
 //----------------------------------------------------------------------------------------------------------------------------------------------------
 {
-  if (auto dominantKey = inferKeyFromDominantSignature(pressedKeyMask12, config))
+  if (auto dominantKey = Intona::Tuning::inferKeyFromDominantSignature(pressedKeyMask12, config))
   {
     return dominantKey;
   }
@@ -1117,7 +1046,7 @@ const Config* MainWindow::findConfigByScale(uint8_t midiNoteOff, uint32_t timeMs
 
   resetScaleData();
 
-  return isKeyCompatibleWithTuningCenter(currentConfig_.tuningCenter, bestKeyTonic, bestIsMinor)
+  return Intona::Tuning::isKeyCompatibleWithTuningCenter(currentConfig_.tuningCenter, bestKeyTonic, bestIsMinor)
           ? &currentConfig_
           : &m.getConfig(bestKeyTonic);
 }
@@ -1138,7 +1067,7 @@ void MainWindow::applyCurrentConfig(IMidiOut& out, bool rebuildMask, uint8_t pre
 //-------------------------------------------------------------------------------------
 {
   if (rebuildMask)
-    rebuildConfigMask(currentConfig_, kNtetMappings[edoIdx_]);
+    Intona::Tuning::rebuildConfigMask(currentConfig_);
 
   updateStepButtonEnablement();
   SendTuningSysex(kNtetMappings[edoIdx_].N, kNtetMappings[edoIdx_].fifthStep, &out);
@@ -1276,34 +1205,6 @@ bool MainWindow::isValueAllowedForKey(int keyIndex, int value) const
   }
 
   return true;
-}
-
-//---------------------------------------------------------------------------------------------------------
-bool MainWindow::isKeyCompatibleWithTuningCenter(int8_t tuningCenter, int8_t keyTonic, bool isMinor)
-//---------------------------------------------------------------------------------------------------------
-{
-  const KeyChoice candidates[9] =
-  {
-    {                     tuningCenter,      false },
-    {                     tuningCenter,      true  },
-    { static_cast<int8_t>(tuningCenter - 3), false },
-
-    { static_cast<int8_t>(tuningCenter + 1), false },
-    { static_cast<int8_t>(tuningCenter + 1), true  },
-    { static_cast<int8_t>(tuningCenter - 2), false },
-
-    { static_cast<int8_t>(tuningCenter - 1), false },
-    { static_cast<int8_t>(tuningCenter - 1), true  },
-    { static_cast<int8_t>(tuningCenter - 4), false }
-  };
-
-  for (const auto& k : candidates)
-  {
-    if (k.tonic == keyTonic && k.isMinor == isMinor)
-      return true;
-  }
-
-  return false;
 }
 
 //---------------------------------------------------------------------------------------------------
@@ -1690,7 +1591,7 @@ void MainWindow::FindBetterTuningCenter(const NtetMapping& m)
     if (currentConfig_.valueForKey == cfg.valueForKey)
     {
       currentConfig_.tuningCenter = cfg.tuningCenter;
-      if (!isKeyCompatibleWithTuningCenter(currentConfig_.tuningCenter, currentKeyTonic_, currentKeyIsMinor_))
+      if (!Intona::Tuning::isKeyCompatibleWithTuningCenter(currentConfig_.tuningCenter, currentKeyTonic_, currentKeyIsMinor_))
       {
         currentKeyTonic_ = Config::invalid;
         surfaceTab_->getNtetCircleWidget()->setKey(currentKeyTonic_, currentKeyIsMinor_);

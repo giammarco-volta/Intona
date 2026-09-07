@@ -47,6 +47,8 @@ set(INTONA_SOURCES
   src/TuningCenterFinder.h
   src/TuningCenterFinder.cpp
   src/tuning/TuningTypes.h
+  src/tuning/TuningAlgorithms.h
+  src/tuning/TuningAlgorithms.cpp
   src/About.h
 
   external/Common/src/ui/widgets/MidiChannelSelector.h

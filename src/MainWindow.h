@@ -55,13 +55,10 @@ private:
   void updateStepButtonEnablement();
   void stepKeyPitch(int keyIndex, int direction);
   bool isValueAllowedForKey(int keyIndex, int value) const;
-  static bool isKeyCompatibleWithTuningCenter(int8_t tuningCenter, int8_t keyTonic, bool isMinor);
 
   void setEDO(uint8_t idx);
   void enableRTAdapting(bool enable);
 
-  static void rebuildConfigMask(Config& config, const NtetMapping& mapping);
-  static std::optional<KeyChoice> inferKeyFromDominantSignature(uint16_t keyPressedMask12, const Config& config);
   static ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes);
 
   static QString getAftertouchString(AfterTouch aftertouch);
