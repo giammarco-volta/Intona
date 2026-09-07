@@ -46,6 +46,7 @@ set(INTONA_SOURCES
   src/ChordRecognizer.cpp
   src/TuningCenterFinder.h
   src/TuningCenterFinder.cpp
+  src/tuning/TuningTypes.h
   src/About.h
 
   external/Common/src/ui/widgets/MidiChannelSelector.h
