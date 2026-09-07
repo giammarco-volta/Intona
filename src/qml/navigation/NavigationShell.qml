@@ -121,9 +121,7 @@ Item {
             MidiSetupPage {
             }
 
-            PlaceholderPage {
-                pageTitle: qsTr("Manual")
-                titleFontSize: root.pageTitleFontSize
+            UserManualPage {
             }
 
             PlaceholderPage {

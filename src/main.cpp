@@ -6,6 +6,7 @@
 
 #include "MainWindow.h"
 #include "StyleUtils.h"
+#include "ManualDocumentParser.h"
 #include "midi/MidiController.h"
 
 #ifdef Q_OS_ANDROID
@@ -66,6 +67,12 @@ int main(int argc, char** argv)
   }
 
   MidiController midiController;
+
+  const QVariantList userManualBlocks =
+    NaadaLab::ManualDocumentParser::loadFromResource(
+      QStringLiteral(":/manual/IntonaUserManual.html"),
+      QStringLiteral("qrc:/manual/"));
+
   QQmlApplicationEngine engine;
 
   QObject::connect(
@@ -77,6 +84,8 @@ int main(int argc, char** argv)
       QCoreApplication::exit(-1);
     },
     Qt::QueuedConnection);
+
+  engine.rootContext()->setContextProperty("UserManualBlocks", userManualBlocks);
 
 #ifdef NDEBUG
   constexpr bool debugBuild = false;

@@ -10,6 +10,7 @@ find_package(Qt6 REQUIRED COMPONENTS
   Widgets
   Pdf
   PdfWidgets
+  Svg
   Qml
   Quick
   QuickControls2
@@ -97,6 +98,7 @@ qt_add_qml_module(Intona
     src/qml/pages/PlaceholderPage.qml
     src/qml/controls/MidiChannelGrid.qml
     src/qml/pages/MidiSetupPage.qml
+    src/qml/pages/UserManualPage.qml
 )
 
 set_source_files_properties(
@@ -114,20 +116,46 @@ set_source_files_properties(
   PROPERTIES QT_RESOURCE_ALIAS "manual/IntonaUserManual.pdf"
 )
 
+set_source_files_properties(
+  src/resources/manual/IntonaUserManual.html
+  PROPERTIES QT_RESOURCE_ALIAS "manual/IntonaUserManual.html"
+)
+
+file(GLOB MANUAL_IMAGE_FILES CONFIGURE_DEPENDS
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/manual/images/*.png"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/manual/images/*.jpg"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/manual/images/*.jpeg"
+  "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/manual/images/*.svg"
+)
+
+foreach(manual_image ${MANUAL_IMAGE_FILES})
+  get_filename_component(manual_image_name "${manual_image}" NAME)
+
+  set_source_files_properties(
+    "${manual_image}"
+    PROPERTIES
+      QT_RESOURCE_ALIAS "manual/images/${manual_image_name}"
+  )
+endforeach()
+
 qt_add_resources(Intona IntonaResources
   PREFIX "/"
   FILES
     src/resources/qdarkstyle/darkstyle.qss
     src/resources/images/keyboard.png
     src/resources/manual/IntonaUserManual.pdf
+    src/resources/manual/IntonaUserManual.html
+    ${MANUAL_IMAGE_FILES}
 )
 
 target_link_libraries(Intona PRIVATE
   NaadaLab::Midi
   NaadaLab::Ui
+  NaadaLab::Manual
   Qt6::Widgets
   Qt6::Pdf
   Qt6::PdfWidgets
+  Qt6::Svg
   Qt6::Qml
   Qt6::Quick
   Qt6::QuickControls2

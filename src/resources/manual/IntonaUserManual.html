@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Intona User Manual - Draft</title>
+  <style>
+		.group-table {
+			border-collapse: collapse;
+			margin: 1em 0;
+		}
+
+		.group-table th,
+		.group-table td {
+			padding: 4px 18px 4px 0;
+			text-align: left;
+			vertical-align: middle;
+			white-space: nowrap;
+		}
+
+		.group-table th {
+			font-weight: bold;
+		}
+
+		.group-table .badge {
+			font-family: "Bravura", "Noto Music", "Segoe UI Symbol", serif;
+			font-size: 1.25em;
+		}
+
+		.music-symbol {
+			font-family: "Bravura", "Noto Music", "Segoe UI Symbol", serif;
+			font-size: 1.2em;
+			white-space: nowrap;
+		}
+
+		.image-text-row {
+			display: flex;
+			flex-direction: row;
+			align-items: flex-start;
+			gap: 24px;
+			width: 100%;
+		}
+
+		.side-figure {
+			flex: 0 0 240px;
+			width: 240px;
+			margin: 0;
+		}
+
+		.side-figure img {
+			width: 240px;
+			max-width: 240px;
+			height: auto;
+			display: block;
+			border: 1px solid #888;
+		}
+
+		.side-text {
+			flex: 1 1 auto;
+			min-width: 0;
+		}
+
+		.side-text p:first-child {
+			margin-top: 0;
+		}
+
+		.screenshot-large {
+			width: 100%;
+			max-width: 1000px;
+		}
+
+		.screenshot-medium {
+			width: 70%;
+		}
+
+		.screenshot-small {
+			width: 40%;
+		}
+		h1 {
+			color: #8B3A3A;
+			border-bottom: 2px solid #B06060;
+			padding-bottom: 6px;
+		}
+
+		h2 {
+			color: #15155C;
+		}
+
+		.image-row {
+			display: flex;
+			gap: 24px;
+			align-items: flex-start;
+		}
+
+		.image-row figure {
+			margin: 0;
+		}
+
+		.image-row img {
+			max-width: 360px;
+			width: auto;
+			height: auto;
+			border: 1px solid #888;
+		}
+
+		@media print {
+			body {
+				font-size: 11pt;
+				line-height: 1.35;
+			}
+
+			h1 {
+				page-break-before: always;
+			}
+
+			h1:first-of-type {
+				page-break-before: auto;
+			}
+
+			h2, h3 {
+				page-break-after: avoid;
+			}
+
+			figure {
+				page-break-inside: avoid;
+			}
+
+			img {
+				max-width: 100%;
+				height: auto;
+			}
+
+			table {
+				page-break-inside: avoid;
+			}
+		}
+
+		@page {
+			size: A4;
+			margin: 18mm 16mm 18mm 16mm;
+		}
+
+		.manual-screenshot {
+			max-width: 100%;
+			height: auto;
+			border: 1px solid #888;
+		}
+
+		.medium-image {
+			max-width: 600px;
+			height: auto;
+		}
+
+		.small-image {
+			max-width: 360px;
+			height: auto;
+		}
+  </style>
+</head>
+
+<body>
+
+  <img src="images/naadalab.svg">
+
+  <main class="page">
+    <h1>Intona User Manual</h1>
+
+    <p><strong>Draft version.</strong> This document is a first working draft and will be revised as the behaviour of Intona is documented in more detail.</p>
+
+	<section id="before-you-start-midi-flow">
+  <h2>Before You Start: How <strong>Intona</strong> Controls the MIDI Flow</h2>
+
+  <p>
+    <strong>Intona</strong> is not intended to work only as a device that sends tuning SysEx
+    messages in the background.
+  </p>
+
+  <p>
+    For real-time adaptive tuning to work correctly, <strong>Intona</strong> must control the
+    order in which tuning changes and note events reach the sound generator.
+  </p>
+
+  <p>
+    This is an important point. When <strong>Intona</strong> receives a note, it may need to
+    analyse the musical context, select or update the current tuning, and send a
+    MIDI tuning SysEx message before the note is actually played by the
+    receiving instrument.
+  </p>
+
+  <p>The correct order is therefore:</p>
+
+  <pre><code>Note received by <strong>Intona</strong>
+→ musical context is analysed
+→ tuning is updated if needed
+→ MIDI tuning SysEx is sent
+→ Note On is sent to the tuned output channels</code></pre>
+
+  <p>
+    If the receiving instrument plays the note directly before <strong>Intona</strong> has sent
+    the new tuning information, the note may start with the previous tuning.
+    This can produce wrong intonation, especially when the tuning changes in
+    response to the note that has just been played.
+  </p>
+
+  <p>
+    For this reason, the MIDI input used by <strong>Intona</strong> should be treated as a
+    <strong>control track</strong> or <strong>control channel</strong>. It should
+    send MIDI data to <strong>Intona</strong>, but it should not directly trigger the sound
+    generator.
+  </p>
+
+  <p>
+    On a hardware instrument, this usually means that the control track should
+    be set to <strong>Local Off</strong>, or otherwise configured so that it does
+    not produce sound directly.
+  </p>
+
+  <p>
+    The final sounding notes should be generated only from the MIDI data sent by
+    <strong>Intona</strong>.
+  </p>
+
+  <h3>Control Track and Tuned Output Channels</h3>
+
+  <p>
+    <strong>Intona</strong> receives notes from one input channel. This channel is the
+    <strong>control channel</strong>.
+  </p>
+
+  <p>
+    The control channel is used by <strong>Intona</strong> to understand what is being played and
+    to decide whether the tuning has to be changed.
+  </p>
+
+  <p>
+    <strong>Intona</strong> then sends the resulting notes to the selected
+    <strong>Tuned Output Channels</strong>.
+  </p>
+
+  <p>The Tuned Output Channels have two roles:</p>
+
+  <ol>
+    <li>
+      they receive the MIDI tuning SysEx messages generated by <strong>Intona</strong>;
+    </li>
+    <li>
+      they receive the Note On and Note Off events replicated by <strong>Intona</strong>.
+    </li>
+  </ol>
+
+  <p>
+    This ensures that the channels which play the final sound are also the
+    channels affected by the current tuning.
+  </p>
+
+  <h3>Why Sending Only Tuning SysEx Is Not Enough</h3>
+
+  <p>
+    In some simple situations, it may seem sufficient to let the instrument play
+    normally and use <strong>Intona</strong> only to send tuning SysEx messages.
+  </p>
+
+  <p>
+    This is not reliable for real-time adaptive tuning.
+  </p>
+
+  <p>
+    The reason is timing. If the instrument receives and plays a note before
+    <strong>Intona</strong> has sent the tuning update, that note may start with the wrong
+    tuning. Even if the tuning is corrected immediately afterwards, the attack
+    of the note may already be wrong, or different parts may respond
+    inconsistently.
+  </p>
+
+  <p>
+    For accurate real-time behaviour, <strong>Intona</strong> must receive the note first, send
+    the required tuning information, and only then send the note to the tuned
+    output channels.
+  </p>
+
+  <h3>Recommended MIDI Setup</h3>
+
+  <p>A typical setup is:</p>
+
+  <pre><code>Keyboard / sequencer control track
+→ MIDI IN of <strong>Intona</strong>
+→ <strong>Intona</strong> analyses the notes and sends tuning SysEx
+→ <strong>Intona</strong> sends Note On / Note Off events
+→ Tuned output channels of the receiving instrument</code></pre>
+
+  <p>
+    The control track should not generate sound directly.
+  </p>
+
+  <p>
+    The selected Tuned Output Channels are the channels that produce the final
+    sound. They should be configured on the receiving instrument as the actual
+    sounding parts.
+  </p>
+
+  <p>
+    With this setup, <strong>Intona</strong> becomes the central point that controls both the
+    tuning information and the timing of the notes that use that tuning.
+  </p>
+</section>
+
+
+    <nav class="toc" aria-label="Table of contents">
+      <strong>Contents</strong>
+      <ol>
+        <li><a href="#introduction">Introduction</a></li>
+        <li><a href="#basic-concepts">Basic Concepts</a></li>
+        <li><a href="#midi-settings">MIDI Settings</a></li>
+        <li><a href="#tuning-surface">Tuning Surface</a></li>
+      </ol>
+    </nav>
+
+    <section id="introduction">
+      <h2>1. Introduction</h2>
+
+      <p><strong>Intona</strong> is a real-time MIDI tuning application designed to retune incoming MIDI notes according to alternative tuning systems and adaptive intonation rules.</p>
+
+      <p>The application receives MIDI notes from an external keyboard, sequencer or MIDI source, analyses the musical context, and sends tuned MIDI data to one or more output MIDI channels.</p>
+
+      <p><strong>Intona</strong> is intended for musicians, composers and researchers interested in microtonality, equal divisions of the octave, adaptive tuning, and non-standard pitch organisation.</p>
+
+      <p>The main goal of <strong>Intona</strong> is not only to select a static tuning, but to make intonation responsive to the musical context, while keeping the interface clear enough to be used in real time.</p>
+    </section>
+
+    <section id="basic-concepts">
+      <h2>2. Basic Concepts</h2>
+
+      <h3>MIDI input and MIDI output</h3>
+
+      <p><strong>Intona</strong> works between a MIDI source and a MIDI sound generator.</p>
+
+      <p>The MIDI source may be:</p>
+      <ul>
+        <li>a MIDI keyboard;</li>
+        <li>a MIDI controller;</li>
+        <li>a sequencer;</li>
+        <li>a DAW track;</li>
+        <li>another MIDI application.</li>
+      </ul>
+
+      <p>The MIDI output may be:</p>
+      <ul>
+        <li>an external synthesizer;</li>
+        <li>a hardware workstation;</li>
+        <li>a virtual MIDI port;</li>
+        <li>a software instrument;</li>
+        <li>a DAW input.</li>
+      </ul>
+
+      <p>Incoming MIDI notes are received by <strong>Intona</strong>, processed according to the current tuning settings, and then sent to the selected MIDI output device.</p>
+
+      <h3>Input channel</h3>
+
+      <p>The input channel determines which MIDI channel <strong>Intona</strong> listens to.</p>
+
+      <p>Only notes received on the selected input channel are used as the musical input for the tuning process.</p>
+
+      <h3>Output channels</h3>
+
+      <p><strong>Intona</strong> can send MIDI data to one or more output channels.</p>
+
+      <p>The selected output channels are shown as numbered checkboxes from 1 to 16. Checked channels are active output channels.</p>
+
+      <p>Using several output channels can be useful when the receiving instrument supports independent tuning information per MIDI channel, or when the same musical material has to be distributed across multiple parts.</p>
+
+      <h3>Tuning surface</h3>
+
+      <p>The Tuning Surface is the main performance view of <strong>Intona</strong>.</p>
+
+      <p>It shows the selected tuning system, the current tuning centre, the organisation of notes around the tuning circle, and the currently available adaptive tuning choices.</p>
+
+      <p>The central keyboard represents the twelve conventional pitch classes, while the surrounding circle represents the selected equal division of the octave.</p>
+    </section>
+
+    <section id="midi-settings">
+      <h2>3. MIDI Settings</h2>
+
+		<figure>
+			<img class="manual-screenshot"
+				 src="images/MidiSettings.jpg"
+				 alt="MIDI Settings tab"
+				 style="width:85%;">
+			<figcaption>
+				MIDI Settings tab.
+			</figcaption>
+		</figure>
+
+
+      <p>The MIDI Settings tab is used to configure MIDI input and output.</p>
+
+      <h3>MIDI status</h3>
+
+      <p>At the top of the tab, <strong>Intona</strong> shows the current MIDI input status.</p>
+
+      <p>When the MIDI input is correctly opened, the status line displays:</p>
+
+      <p><strong>MIDI IN: connected</strong></p>
+
+      <p>If the input device is not available, disconnected, or already in use by another application, the status will indicate that the MIDI input could not be opened.</p>
+
+      <h3>MIDI IN</h3>
+
+      <p>The MIDI IN section selects the device and channel used as the input source.</p>
+
+      <p><strong>Device</strong> selects the MIDI input device.</p>
+
+      <p>Use this field to choose the keyboard, controller, sequencer port, virtual MIDI port, or external application that sends notes to <strong>Intona</strong>.</p>
+
+      <p><strong>Input channel</strong> selects the MIDI channel that <strong>Intona</strong> listens to.</p>
+
+      <p>Only MIDI events received on this channel are processed as input notes.</p>
+
+      <p>The <strong>Refresh</strong> button updates the list of available MIDI input devices. Use it after connecting a new MIDI device or after opening a virtual MIDI port.</p>
+
+      <h3>MIDI OUT</h3>
+
+      <p>The MIDI OUT section selects the MIDI output device and the active output channels.</p>
+
+      <p><strong>Device</strong> selects the destination that receives the tuned MIDI output.</p>
+
+      <p>This may be a hardware synthesizer, a software instrument, a virtual MIDI port, or a MIDI input exposed by another application.</p>
+
+      <p>The numbered checkboxes from <strong>1</strong> to <strong>16</strong> select the active output channels.</p>
+
+      <p>A checked channel is active. An unchecked channel is not used.</p>
+
+      <p>The <strong>Refresh</strong> button updates the list of available MIDI output devices. Use it after connecting a MIDI device, starting a virtual MIDI driver, or opening a software instrument that exposes a MIDI input port.</p>
+
+      <h3>Typical MIDI setup</h3>
+
+      <ol>
+        <li>Connect a MIDI keyboard or controller to the computer.</li>
+        <li>Select it as the MIDI IN device.</li>
+        <li>Select the MIDI channel used by the keyboard.</li>
+        <li>Select the target synthesizer or virtual MIDI port as the MIDI OUT device.</li>
+        <li>Enable the output channel or channels that should receive the tuned notes.</li>
+      </ol>
+
+      <div class="note">
+        If the same hardware instrument is used both as controller and sound generator, make sure that its local sound generation does not duplicate the notes sent through <strong>Intona</strong>. Depending on the instrument, this may require using Local Off or an equivalent MIDI routing configuration.
+      </div>
+    </section>
+
+    <section id="tuning-surface">
+      <h2>4. Tuning Surface</h2>
+
+
+	<figure>
+		<img class="manual-screenshot"
+			 src="images/TuningSurface.jpg"
+			 alt="Tuning Surface tab"
+			 style="width:85%;">
+		<figcaption>
+			Tuning Surface tab.
+		</figcaption>
+	</figure>
+
+      <p>The Tuning Surface tab is the main control and visualisation area of <strong>Intona</strong>.</p>
+
+      <p>It shows the current tuning system, the tuning centre, the note layout, and the available adaptive tuning choices.</p>
+
+      <h3>Tuning circle</h3>
+
+      <p>The large circular display represents the selected equal division of the octave.</p>
+
+      <p>Each position around the circle corresponds to a step of the tuning system.</p>
+
+      <p>The note names show how the steps are currently interpreted in relation to the selected tuning centre and note naming system.</p>
+
+      <p>The smaller numerical values show the corresponding pitch positions in cents.</p>
+
+      <h3>EDO selector</h3>
+
+      <p>The central selector shows the current equal division of the octave, for example:</p>
+
+      <p><strong>31 EDO</strong></p>
+
+      <p>EDO means “Equal Division of the Octave”.</p>
+
+      <p>In an EDO tuning, the octave is divided into a fixed number of equal steps.</p>
+
+      <p>For example, in 31 EDO the octave is divided into 31 equal parts. Each step is approximately 38.71 cents.</p>
+
+      <p>Changing the EDO changes the available pitch grid and the relationship between note names and tuning steps.</p>
+
+      <h3>Central keyboard</h3>
+
+      <p>The central keyboard shows the twelve conventional pitch classes.</p>
+
+      <p>It acts as a familiar reference inside the microtonal tuning system.</p>
+
+      <p>The displayed pitch classes help relate the current EDO tuning to conventional keyboard note names.</p>
+
+      <h3>Step controls</h3>
+
+      <p>The plus and minus controls above and below the keyboard allow pitch classes to be shifted by tuning steps.</p>
+
+      <p>They provide a direct way to adjust the mapping between conventional pitch classes and the selected EDO grid.</p>
+
+      <p>This is useful when exploring enharmonic alternatives or when adapting the current tuning layout to a specific harmonic context.</p>
+
+      <h3>Tuning centre</h3>
+
+      <p>The lower-left area shows the current tuning centre, for example:</p>
+
+      <p><strong>Tuning Center = C</strong></p>
+
+      <p>The tuning centre is the reference point used by the current tuning interpretation.</p>
+
+      <p>Changing the tuning centre changes how pitch relationships are interpreted and how adaptive choices are evaluated.</p>
+
+      <h3>Real-Time Adapting</h3>
+
+      <p>The <strong>RT Adapting</strong> indicator shows whether real-time adaptive tuning is active.</p>
+
+      <p>When real-time adapting is enabled, <strong>Intona</strong> can change the tuning interpretation according to the musical context.</p>
+
+      <p>When it is disabled, the current tuning layout remains fixed until the user changes it manually.</p>
+
+      <h3>Aftertouch</h3>
+
+      <p>The <strong>Aftertouch</strong> indicator shows whether aftertouch control is enabled.</p>
+
+      <p>When aftertouch control is active, aftertouch messages can be used to influence tuning behaviour according to the selected mode.</p>
+
+      <p>When aftertouch is off, aftertouch messages do not affect the tuning.</p>
+
+      <h3>Keep it</h3>
+
+      <p>The <strong>Keep it</strong> control is used to keep the current tuning choice.</p>
+
+      <p>This is useful when <strong>Intona</strong> proposes or reaches a tuning interpretation that the user wants to preserve while continuing to play.</p>
+
+      <h3>Adaptive choices panel</h3>
+
+      <p>The panel on the right lists available note collections or harmonic interpretations related to the current tuning context.</p>
+
+      <p>Each row represents a possible tuning choice.</p>
+
+      <p>The highlighted notes indicate the pitch classes involved in that choice.</p>
+
+      <p>The small remove button on the right of each row can be used to discard a listed choice when it is no longer needed.</p>
+
+      <p>This panel is especially useful when working with adaptive tuning, because it shows the available alternatives in a compact form.</p>
+    </section>
+  </main>
+</body>
+</html>

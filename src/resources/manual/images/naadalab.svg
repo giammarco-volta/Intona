@@ -1,0 +1,123 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 0 600 200" width="600" height="200">
+  <!-- NaadaLab rounded logo -->
+
+  <rect x="-40" y="0" width="600" height="200" fill="white"/>
+
+    <defs>
+    <style>
+      .frame-shadow {
+        fill: none;
+        stroke: #cccccc;
+        stroke-width: 5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .tri-shadow {
+        fill: none;
+        stroke: #cccccc;
+        stroke-width: 5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .frame {
+        fill: none;
+        stroke: #111111;
+        stroke-width: 5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .tri {
+        fill: none;
+        stroke: #111111;
+        stroke-width: 5;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+    </style>
+  </defs>
+
+  
+  <g transform="translate(4,4)">
+  <!-- Shadow layer -->
+<!-- A1 cx=115 -->
+  <path class="tri-shadow" d="M 93,135 L 122,135 Q 145,135 141.85,127.65 L 118.15,72.35 Q 115,65 111.85,72.35 L 88.15,127.65"/>
+
+  <!-- A2 cx=183 -->
+  <path class="tri-shadow" d="M 161,135 L 190,135 Q 213,135 209.85,127.65 L 186.15,72.35 Q 183,65 179.85,72.35 L 156.15,127.65"/>
+
+  <!-- D -->
+  <path class="tri-shadow" d="M 223,73 L 223,127 Q 223,135 229.88,131.06 L 277.12,103.94 Q 284,100 277.12,96.06 L 229.88,68.94"/>
+
+  <!-- A3 cx=310 -->
+  <path class="tri-shadow" d="M 288,135 L 317,135 Q 340,135 336.85,127.65 L 313.15,72.35 Q 310,65 306.85,72.35 L 283.15,127.65"/>
+
+  <!-- A4 cx=398 -->
+  <path class="tri-shadow" d="M 376,135 L 405,135 Q 428,135 424.85,127.65 L 401.15,72.35 Q 398,65 394.85,72.35 L 371.15,127.65"/>
+
+  <!-- B top -->
+  <path class="tri-shadow" d="M 443,71 L 443,94 Q 443,100 448.54,97.69 L 479.46,84.81 Q 485,82.5 479.46,80.19 L 448.54,67.31"/>
+
+  <!-- B bottom -->
+  <path class="tri-shadow" d="M 443,106 L 443,129 Q 443,135 448.54,132.69 L 479.46,119.81 Q 485,117.5 479.46,115.19 L 448.54,102.31"/>
+
+  <!-- FRAME -->
+  <path class="frame-shadow" d="
+    M -30,165
+    L 0,165
+    Q 10,165 10,155
+    L 10,45
+    Q 10,35 14.58,43.75
+    L 73.42,156.25
+    Q 78,165 78,155
+    L 78,45
+    Q 78,35 88,35
+    L 348,35
+    Q 358,35 358,45
+    L 358,155
+    Q 358,165 368,165
+    L 525,165
+  "/>
+  </g>
+
+  <!-- Base layer -->
+<!-- A1 cx=115 -->
+  <path class="tri" d="M 93,135 L 122,135 Q 145,135 141.85,127.65 L 118.15,72.35 Q 115,65 111.85,72.35 L 88.15,127.65"/>
+
+  <!-- A2 cx=183 -->
+  <path class="tri" d="M 161,135 L 190,135 Q 213,135 209.85,127.65 L 186.15,72.35 Q 183,65 179.85,72.35 L 156.15,127.65"/>
+
+  <!-- D -->
+  <path class="tri" d="M 223,73 L 223,127 Q 223,135 229.88,131.06 L 277.12,103.94 Q 284,100 277.12,96.06 L 229.88,68.94"/>
+
+  <!-- A3 cx=310 -->
+  <path class="tri" d="M 288,135 L 317,135 Q 340,135 336.85,127.65 L 313.15,72.35 Q 310,65 306.85,72.35 L 283.15,127.65"/>
+
+  <!-- A4 cx=398 -->
+  <path class="tri" d="M 376,135 L 405,135 Q 428,135 424.85,127.65 L 401.15,72.35 Q 398,65 394.85,72.35 L 371.15,127.65"/>
+
+  <!-- B top -->
+  <path class="tri" d="M 443,71 L 443,94 Q 443,100 448.54,97.69 L 479.46,84.81 Q 485,82.5 479.46,80.19 L 448.54,67.31"/>
+
+  <!-- B bottom -->
+  <path class="tri" d="M 443,106 L 443,129 Q 443,135 448.54,132.69 L 479.46,119.81 Q 485,117.5 479.46,115.19 L 448.54,102.31"/>
+
+  <!-- FRAME -->
+  <path class="frame" d="
+    M -30,165
+    L 0,165
+    Q 10,165 10,155
+    L 10,45
+    Q 10,35 14.58,43.75
+    L 73.42,156.25
+    Q 78,165 78,155
+    L 78,45
+    Q 78,35 88,35
+    L 348,35
+    Q 358,35 358,45
+    L 358,155
+    Q 358,165 368,165
+    L 525,165
+  "/>
+
+
+</svg>
