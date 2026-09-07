@@ -366,4 +366,73 @@ const Config* findConfigByValues(
   return nullptr;
 }
 
+namespace
+{
+
+double valueToCentsInOctave(
+  int value,
+  const NtetMapping& mapping)
+{
+  const int step =
+    mod(value * mapping.fifthStep, mapping.N);
+
+  return 1200.0 * double(step) / double(mapping.N);
+}
+
+double rawOffsetForKey(
+  int key,
+  int value,
+  const NtetMapping& mapping)
+{
+  const double cents =
+    valueToCentsInOctave(value, mapping);
+
+  double offset = cents - 100.0 * key;
+
+  while (offset > 600.0)
+    offset -= 1200.0;
+
+  while (offset <= -600.0)
+    offset += 1200.0;
+
+  return offset;
+}
+
+} // namespace
+
+std::optional<double> findGlobalOffsetCents(
+  const Config& config,
+  const NtetMapping& mapping,
+  double preferredOffset)
+{
+  constexpr double limit = 99.0;
+
+  double lowerBound = -1e9;
+  double upperBound = 1e9;
+
+  for (int key = 0; key < 12; ++key)
+  {
+    const double rawOffset = rawOffsetForKey(
+      key,
+      config.valueForKey[key],
+      mapping);
+
+    lowerBound = std::max(
+      lowerBound,
+      rawOffset - limit);
+
+    upperBound = std::min(
+      upperBound,
+      rawOffset + limit);
+  }
+
+  if (lowerBound > upperBound)
+    return std::nullopt;
+
+  return std::clamp(
+    preferredOffset,
+    lowerBound,
+    upperBound);
+}
+
 } // namespace Intona::Tuning

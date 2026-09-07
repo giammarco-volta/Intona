@@ -29,53 +29,6 @@
 #include "About.h"
 
 
-//-----------------------------------------------------------
-double valueToCentsInOctave(int value5, const NtetMapping& m)
-//-----------------------------------------------------------
-{
-  const int step = mod(value5 * m.fifthStep, m.N);
-  return 1200.0 * double(step) / double(m.N);
-}
-
-//---------------------------------------------------------------
-double rawOffsetForKey(int key, int value5, const NtetMapping& m)
-//---------------------------------------------------------------
-{
-  double cents = valueToCentsInOctave(value5, m);
-  double offset = cents - 100.0 * key;
-
-  while (offset > 600.0)
-    offset -= 1200.0;
-
-  while (offset <= -600.0)
-    offset += 1200.0;
-
-  return offset;
-}
-
-//----------------------------------------------------------------------------------------------------------
-std::optional<double> findGlobalOffsetCents(const Config& cfg, const NtetMapping& m, double preferredOffset)
-//----------------------------------------------------------------------------------------------------------
-{
-  constexpr double kLimit = 99.0;
-
-  double lo = -1e9;
-  double hi = 1e9;
-
-  for (int key = 0; key < 12; ++key)
-  {
-    const double raw = rawOffsetForKey(key, cfg.valueForKey[key], m);
-
-    lo = std::max(lo, raw - kLimit);
-    hi = std::min(hi, raw + kLimit);
-  }
-
-  if (lo > hi)
-    return std::nullopt;
-
-  return std::clamp(preferredOffset, lo, hi);
-}
-
 //---------------------------------------------------------------------------
 static void sendRpnCoarseTuning(IMidiOut& out, uint8_t ch, uint8_t semitones)
 //---------------------------------------------------------------------------
@@ -196,7 +149,7 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
       candidate.valueForKey = preset.values;
       candidate.tuningCenter = preset.tuningCenter;
 
-      const auto offset = findGlobalOffsetCents(
+      const auto offset = Intona::Tuning::findGlobalOffsetCents(
         candidate,
         mapping,
         preset.globalOffsetCents);
@@ -373,7 +326,7 @@ void MainWindow::setConfig(const Config* cfg, const NtetMapping& m)
 //-----------------------------------------------------------------
 {
   currentConfig_ = *cfg;
-  auto offset = findGlobalOffsetCents(currentConfig_, m, currentGlobalOffsetCents_);
+  auto offset = Intona::Tuning::findGlobalOffsetCents(currentConfig_, m, currentGlobalOffsetCents_);
 
   if (!offset)
   {
@@ -1369,7 +1322,7 @@ void MainWindow::loadPresetsForCurrentEDO()
     };
 
     const auto validatedOffset =
-      findGlobalOffsetCents(
+      Intona::Tuning::findGlobalOffsetCents(
         candidate,
         mapping,
         preset.globalOffsetCents);
@@ -1565,7 +1518,7 @@ void MainWindow::captureCurrentConfigPreset()
 {
   const NtetMapping& mapping = kNtetMappings[edoIdx_];
 
-  const auto offset = findGlobalOffsetCents(
+  const auto offset = Intona::Tuning::findGlobalOffsetCents(
     currentConfig_,
     mapping,
     currentGlobalOffsetCents_);

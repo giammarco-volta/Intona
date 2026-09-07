@@ -31,4 +31,9 @@ const Config* findConfigByValues(
   const NtetMapping& mapping,
   const std::array<int8_t, 12>& values);
 
+std::optional<double> findGlobalOffsetCents(
+  const Config& config,
+  const NtetMapping& mapping,
+  double preferredOffset);
+
 } // namespace Intona::Tuning
