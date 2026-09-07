@@ -7,6 +7,7 @@
 #include "MainWindow.h"
 #include "StyleUtils.h"
 #include "ManualDocumentParser.h"
+#include "About.h"
 #include "midi/MidiController.h"
 
 #ifdef Q_OS_ANDROID
@@ -74,6 +75,10 @@ int main(int argc, char** argv)
       QStringLiteral("qrc:/manual/"));
 
   QQmlApplicationEngine engine;
+
+  engine.rootContext()->setContextProperty(
+    "AboutHtml",
+    QString::fromUtf8(about));
 
   QObject::connect(
     &engine,

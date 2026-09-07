@@ -99,6 +99,7 @@ qt_add_qml_module(Intona
     src/qml/controls/MidiChannelGrid.qml
     src/qml/pages/MidiSetupPage.qml
     src/qml/pages/UserManualPage.qml
+    src/qml/pages/AboutPage.qml
 )
 
 set_source_files_properties(

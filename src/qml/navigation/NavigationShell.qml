@@ -124,9 +124,9 @@ Item {
             UserManualPage {
             }
 
-            PlaceholderPage {
-                pageTitle: qsTr("About")
-                titleFontSize: root.pageTitleFontSize
+            AboutPage {
+                onOpenManualRequested:
+                    root.currentSection = "manual"
             }
         }
     }

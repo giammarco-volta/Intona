@@ -1,6 +1,6 @@
 #pragma once
 
-const char* about = R"(
+inline constexpr char about[] = R"(
                           <style>
                               a {
                                   color: #d8b45a;
