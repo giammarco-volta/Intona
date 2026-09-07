@@ -52,6 +52,10 @@ set(INTONA_SOURCES
   external/Common/src/ui/widgets/ManualWidget.h
   external/Common/src/ui/widgets/ManualWidget.cpp
 
+  src/midi/IntonaMidiConfiguration.h
+  src/midi/MidiController.h
+  src/midi/MidiController.cpp
+
   src/ui/tabs/MidiSettingsTab.h
   src/ui/tabs/MidiSettingsTab.cpp
 
@@ -91,6 +95,8 @@ qt_add_qml_module(Intona
     src/qml/Main.qml
     src/qml/navigation/NavigationShell.qml
     src/qml/pages/PlaceholderPage.qml
+    src/qml/controls/MidiChannelGrid.qml
+    src/qml/pages/MidiSetupPage.qml
 )
 
 set_source_files_properties(
@@ -132,8 +138,8 @@ target_include_directories(Intona PRIVATE
 )
 
 if(ANDROID)
-  set_property(TARGET Intona PROPERTY
-    QT_ANDROID_PACKAGE_SOURCE_DIR
+  naadalab_configure_android_midi_package(
+    Intona
     "${CMAKE_CURRENT_SOURCE_DIR}/android"
   )
 

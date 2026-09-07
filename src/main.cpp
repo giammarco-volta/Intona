@@ -2,13 +2,57 @@
 #include <QCoreApplication>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
+#include <QQuickStyle>
 
 #include "MainWindow.h"
 #include "StyleUtils.h"
+#include "midi/MidiController.h"
+
+#ifdef Q_OS_ANDROID
+#include <QDebug>
+#include <QTimer>
+#include <QJniObject>
+#include <QtCore/qnativeinterface.h>
+
+static void enableKeepScreenOn()
+{
+  QNativeInterface::QAndroidApplication::runOnAndroidMainThread([]()
+    {
+      QJniObject activity = QNativeInterface::QAndroidApplication::context();
+
+      if (!activity.isValid())
+      {
+        qWarning() << "Android activity/context not valid";
+        return;
+      }
+
+      QJniObject window =
+        activity.callObjectMethod(
+          "getWindow",
+          "()Landroid/view/Window;");
+
+      if (!window.isValid())
+      {
+        qWarning() << "Android window not valid";
+        return;
+      }
+
+      constexpr int FLAG_KEEP_SCREEN_ON = 128;
+
+      window.callMethod<void>(
+        "addFlags",
+        "(I)V",
+        FLAG_KEEP_SCREEN_ON);
+
+      qDebug() << "FLAG_KEEP_SCREEN_ON set";
+    });
+}
+#endif
 
 int main(int argc, char** argv)
 {
   QApplication app(argc, argv);
+  QQuickStyle::setStyle("Material");
 
   if (QCoreApplication::arguments().contains("--legacy-widgets"))
   {
@@ -21,6 +65,7 @@ int main(int argc, char** argv)
     return app.exec();
   }
 
+  MidiController midiController;
   QQmlApplicationEngine engine;
 
   QObject::connect(
@@ -39,9 +84,18 @@ int main(int argc, char** argv)
   constexpr bool debugBuild = true;
 #endif
 
+  engine.rootContext()->setContextProperty("MidiController", &midiController);
+
   engine.rootContext()->setContextProperty("DebugBuild", debugBuild);
 
   engine.loadFromModule("Intona", "Main");
+
+#ifdef Q_OS_ANDROID
+  QTimer::singleShot(500, &app, []()
+    {
+      enableKeepScreenOn();
+    });
+#endif
 
   return app.exec();
 }

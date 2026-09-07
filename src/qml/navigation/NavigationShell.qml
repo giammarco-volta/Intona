@@ -118,9 +118,7 @@ Item {
                 titleFontSize: root.pageTitleFontSize
             }
 
-            PlaceholderPage {
-                pageTitle: qsTr("MIDI Setup")
-                titleFontSize: root.pageTitleFontSize
+            MidiSetupPage {
             }
 
             PlaceholderPage {

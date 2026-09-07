@@ -25,28 +25,7 @@
 #include "MidiMessage.h"
 #include "MidiChannelSelector.h"
 
-
-namespace
-{
-MidiIn_MonoInterpreter::Configuration makeMidiInConfiguration()
-{
-  MidiIn_MonoInterpreter::Configuration configuration;
-
-  configuration.ignoredControlChanges.set(0);
-  configuration.ignoredControlChanges.set(7);
-  configuration.ignoredControlChanges.set(10);
-  configuration.ignoredControlChanges.set(11);
-  configuration.ignoredControlChanges.set(32);
-  configuration.ignoredControlChanges.set(71);
-  configuration.ignoredControlChanges.set(74);
-
-  configuration.ignoreProgramChanges = true;
-  configuration.noteOffStatePolicy =
-    MidiIn_MonoInterpreter::NoteOffStatePolicy::ClearCurrentNote;
-
-  return configuration;
-}
-}
+#include "../../midi/IntonaMidiConfiguration.h"
 
 
 //--------------------------------------------------
@@ -73,7 +52,7 @@ void setupTrackCheckBox(QCheckBox* cb)
 }
 
 //-------------------------------------------------------------------------------------------------------------------------------------------------
-MidiSettingsTab::MidiSettingsTab(MainWindow* parent) : QWidget(parent), midiOut_(createMidiOut()), midiIn_(createMidiIn(makeMidiInConfiguration()))
+MidiSettingsTab::MidiSettingsTab(MainWindow* parent) : QWidget(parent), midiOut_(createMidiOut()), midiIn_(createMidiIn(makeIntonaMidiInConfiguration()))
 //-------------------------------------------------------------------------------------------------------------------------------------------------
 {
   auto* mainLayout = new QVBoxLayout(this);
@@ -240,7 +219,7 @@ void MidiSettingsTab::connectMidiIn(uint8_t deviceIndex)
 //------------------------------------------------------
 {
   if (!midiIn_)
-    midiIn_ = createMidiIn(makeMidiInConfiguration());
+    midiIn_ = createMidiIn(makeIntonaMidiInConfiguration());
 
   if (!midiIn_)
   {
@@ -337,7 +316,7 @@ void MidiSettingsTab::onRefreshInPorts()
   if (!inPorts_) return;
 
   if (!midiIn_)
-    midiIn_ = createMidiIn(makeMidiInConfiguration());
+    midiIn_ = createMidiIn(makeIntonaMidiInConfiguration());
 
   inPorts_->clear();
 
