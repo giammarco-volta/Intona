@@ -59,8 +59,6 @@ private:
   void setEDO(uint8_t idx);
   void enableRTAdapting(bool enable);
 
-  static ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes);
-
   static QString getAftertouchString(AfterTouch aftertouch);
 
   void handleIncomingNoteOn(uint8_t note, uint8_t velocity, uint32_t timeMs, IMidiOut* out);

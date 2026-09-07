@@ -19,4 +19,7 @@ bool isKeyCompatibleWithTuningCenter(
   int8_t keyTonic,
   bool isMinor);
 
+ChordRootAnalysis inferChordRootByStack(
+  const std::vector<ActiveNote>& notes);
+
 } // namespace Intona::Tuning
