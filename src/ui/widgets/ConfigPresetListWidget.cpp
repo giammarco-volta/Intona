@@ -61,9 +61,9 @@ void ConfigPresetListWidget::setMapping(const NtetMapping* mapping)
   update();
 }
 
-//-----------------------------------------------------------------------------------------
-void ConfigPresetListWidget::setPresets(const std::vector<std::array<int8_t, 12>>& presets)
-//-----------------------------------------------------------------------------------------
+//-----------------------------------------------------------------------------------------------
+void ConfigPresetListWidget::setPresets(const std::vector<Intona::Tuning::TuningPreset>& presets)
+//-----------------------------------------------------------------------------------------------
 {
   presets_ = &presets;
   update();
@@ -131,7 +131,7 @@ void ConfigPresetListWidget::paintEvent(QPaintEvent* event)
 
     QStringList names;
     for (int key = 0; key < 12; ++key)
-      names << noteNameFromFifths(cfg[key]);
+      names << noteNameFromFifths(cfg.values[key]);
 
     p.drawText(notesRect, Qt::AlignVCenter | Qt::AlignLeft, names.join("  "));
 

@@ -6,6 +6,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <array>
 
 namespace Intona::Tuning
 {
@@ -16,6 +17,13 @@ struct RetunedNote
   uint8_t velocity;
   int8_t oldValue;
   int8_t newValue;
+};
+
+struct TuningPreset
+{
+  std::array<int8_t, 12> values{};
+  int8_t tuningCenter = Config::invalid;
+  double globalOffsetCents = 0.0;
 };
 
 struct ActiveNote

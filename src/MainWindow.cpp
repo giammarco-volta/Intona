@@ -184,11 +184,53 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
 
   connect(surfaceTab_->getNtetCircleWidget(), &NtetCircleWidget::afterTouchBehaviourClicked, this, &MainWindow::onAfterTouchBehaviourChanged);
 
-  connect(surfaceTab_->getConfigPresetListWidget(), &ConfigPresetListWidget::presetSelected,
+  connect(
+    surfaceTab_->getConfigPresetListWidget(),
+    &ConfigPresetListWidget::presetSelected,
     this, [this](int index)
     {
-      currentConfig_.valueForKey = configPresets_[index];
-      FindBetterTuningCenter(kNtetMappings[edoIdx_]);
+      const TuningPreset& preset = configPresets_[index];
+      const NtetMapping& mapping = kNtetMappings[edoIdx_];
+
+      Config candidate = currentConfig_;
+      candidate.valueForKey = preset.values;
+      candidate.tuningCenter = preset.tuningCenter;
+
+      const auto offset = findGlobalOffsetCents(
+        candidate,
+        mapping,
+        preset.globalOffsetCents);
+
+      if (!offset)
+      {
+        qWarning()
+          << "Cannot apply tuning preset"
+          << index
+          << "for EDO"
+          << int(mapping.N)
+          << ": no compatible global offset.";
+
+        return;
+      }
+
+      currentConfig_ = candidate;
+      currentGlobalOffsetCents_ = *offset;
+
+      if (currentConfig_.tuningCenter == Config::invalid
+        || !Intona::Tuning::isKeyCompatibleWithTuningCenter(
+          currentConfig_.tuningCenter,
+          currentKeyTonic_,
+          currentKeyIsMinor_))
+      {
+        currentKeyTonic_ = Config::invalid;
+        currentKeyIsMinor_ = false;
+
+        surfaceTab_->getNtetCircleWidget()->setKey(
+          currentKeyTonic_,
+          currentKeyIsMinor_);
+      }
+
+      sendRpnCoarseFineTuning(currentGlobalOffsetCents_);
       applyCurrentConfig(midiSettingTab_->MidiOut(), true, index);
     });
 
@@ -308,7 +350,14 @@ void MainWindow::onMidiChannelMsgReceived(uint8_t code, uint8_t data1, uint8_t d
 void MainWindow::onTuningCenterSelected(int8_t tuningCenter)
 //----------------------------------------------------------
 {
-  setConfig(chooseConfigThroughTuningCenter(tuningCenter), kNtetMappings[edoIdx_]);
+  const auto& mapping = kNtetMappings[edoIdx_];
+
+  setConfig(
+    &Intona::Tuning::configForTuningCenter(
+      mapping,
+      tuningCenter),
+    mapping);
+
   applyCurrentConfig(midiSettingTab_->MidiOut(), false, -1);
 
   if (!Intona::Tuning::isKeyCompatibleWithTuningCenter(currentConfig_.tuningCenter, currentKeyTonic_, currentKeyIsMinor_))
@@ -456,27 +505,6 @@ void MainWindow::SendTuningSysex(uint8_t N, uint8_t fifthStep, IMidiOut* out)
             << QString::number(900 + mts14BitToCents(mtsTable[9]) + currentGlobalOffsetCents_, 'f', 1) << QString::number(1000 + mts14BitToCents(mtsTable[10]) + currentGlobalOffsetCents_, 'f', 1) << QString::number(1100 + mts14BitToCents(mtsTable[11]) + currentGlobalOffsetCents_, 'f', 1);
 
   out->sendSysEx(syx);
-}
-
-//----------------------------------------------------------------------------
-const Config* MainWindow::chooseConfigThroughTuningCenter(int8_t tuningCenter)
-//----------------------------------------------------------------------------
-{
-  while (tuningCenter > kNtetMappings[edoIdx_].maxValue)
-    tuningCenter -= kNtetMappings[edoIdx_].N;
-
-  while (tuningCenter < kNtetMappings[edoIdx_].minValue)
-    tuningCenter += kNtetMappings[edoIdx_].N;
-
-  for (int tc = kNtetMappings[edoIdx_].minValue; tc <= kNtetMappings[edoIdx_].maxValue; ++tc)
-  {
-    const Config& cfg = kNtetMappings[edoIdx_].getConfig(tc);
-    if (tuningCenter == cfg.tuningCenter)
-      return &cfg;
-  }
-
-  qDebug() << "Warning: tuning center" << tuningCenter << "not found in mapping for EDO" << int(kNtetMappings[edoIdx_].N);
-  return nullptr;
 }
 
 
@@ -1152,25 +1180,36 @@ void MainWindow::savePresetsForCurrentEDO() const
 
   QSettings settings("NaadaLab", "Intona");
 
-  settings.beginGroup(QString("tuningPresets/%1").arg(edo));
+  settings.beginGroup(
+    QString("tuningPresetsV2/%1").arg(edo));
 
-  settings.remove(""); // remove all current EDO's presets
-
+  settings.remove("");
   settings.setValue("count", int(configPresets_.size()));
 
   for (int i = 0; i < int(configPresets_.size()); ++i)
   {
-    QVariantList list;
+    const TuningPreset& preset = configPresets_[i];
 
-    for (int k = 0; k < 12; ++k)
-      list << int(configPresets_[i][k]);
+    settings.beginGroup(QString("preset%1").arg(i));
 
-    settings.setValue(QString("preset%1").arg(i), list);
+    QVariantList values;
+
+    for (const int8_t value : preset.values)
+      values << int(value);
+
+    settings.setValue("values", values);
+    settings.setValue(
+      "tuningCenter",
+      int(preset.tuningCenter));
+    settings.setValue(
+      "globalOffsetCents",
+      preset.globalOffsetCents);
+
+    settings.endGroup();
   }
 
   settings.endGroup();
 }
-
 //---------------------------------
 void MainWindow::loadInitSettings()
 //---------------------------------
@@ -1254,49 +1293,102 @@ void MainWindow::loadPresetsForCurrentEDO()
 {
   configPresets_.clear();
 
-  const int edo = kNtetMappings[edoIdx_].N;
+  const NtetMapping& mapping = kNtetMappings[edoIdx_];
 
   QSettings settings("NaadaLab", "Intona");
 
-  settings.beginGroup(QString("tuningPresets/%1").arg(edo));
+  settings.beginGroup(
+    QString("tuningPresetsV2/%1").arg(mapping.N));
 
   const int count = settings.value("count", 0).toInt();
 
   for (int i = 0; i < count; ++i)
   {
-    const QString key = QString("preset%1").arg(i);
+    settings.beginGroup(QString("preset%1").arg(i));
 
-    const QVariantList list = settings.value(key).toList();
+    const bool complete =
+      settings.contains("values")
+      && settings.contains("tuningCenter")
+      && settings.contains("globalOffsetCents");
 
-    if (list.size() != 12)
+    const QVariantList list =
+      settings.value("values").toList();
+
+    const int tuningCenter =
+      settings.value(
+        "tuningCenter",
+        Config::invalid).toInt();
+
+    const double globalOffset =
+      settings.value(
+        "globalOffsetCents",
+        0.0).toDouble();
+
+    settings.endGroup();
+
+    if (!complete || list.size() != 12)
       continue;
 
-    std::array<int8_t, 12> cfg;
+    TuningPreset preset;
+    bool valid = std::isfinite(globalOffset);
 
-    bool valid = true;
-
-    for (int k = 0; k < 12; ++k)
+    for (int key = 0; key < 12 && valid; ++key)
     {
-      const int v = list[k].toInt();
+      const int value = list[key].toInt();
 
-      if (v < kNtetMappings[edoIdx_].minValue || v > kNtetMappings[edoIdx_].maxValue)
+      if (value < kConfigMaskMin
+        || value > kConfigMaskMax)
       {
         valid = false;
         break;
       }
 
-      cfg[k] = static_cast<int8_t>(v);
+      preset.values[key] =
+        static_cast<int8_t>(value);
+    }
+
+    if (tuningCenter != Config::invalid
+      && (tuningCenter < mapping.minValue
+        || tuningCenter > mapping.maxValue))
+    {
+      valid = false;
     }
 
     if (!valid)
       continue;
 
-    configPresets_.push_back(cfg);
+    preset.tuningCenter =
+      static_cast<int8_t>(tuningCenter);
+
+    preset.globalOffsetCents = globalOffset;
+
+    Config candidate{
+      preset.tuningCenter,
+      preset.values,
+      ConfigMask{}
+    };
+
+    const auto validatedOffset =
+      findGlobalOffsetCents(
+        candidate,
+        mapping,
+        preset.globalOffsetCents);
+
+    if (!validatedOffset
+      || std::abs(
+        *validatedOffset
+        - preset.globalOffsetCents) >= 0.0001)
+    {
+      continue;
+    }
+
+    configPresets_.push_back(preset);
   }
 
   settings.endGroup();
 
-  surfaceTab_->getConfigPresetListWidget()->setPresets(configPresets_);
+  surfaceTab_->getConfigPresetListWidget()->setPresets(
+    configPresets_);
 }
 
 //--------------------------------------------
@@ -1357,28 +1449,43 @@ void MainWindow::setEDO(uint8_t idx)
   saveEdoIndex();
 }
 
-//-----------------------------------------------------------
-void MainWindow::FindBetterTuningCenter(const NtetMapping& m)
-//-----------------------------------------------------------
+//-----------------------------------------------------------------
+void MainWindow::FindBetterTuningCenter(const NtetMapping& mapping)
+//-----------------------------------------------------------------
 {
-  for (int tc = kNtetMappings[edoIdx_].minValue; tc <= kNtetMappings[edoIdx_].maxValue; ++tc)
+  const Config* matchingConfig =
+    Intona::Tuning::findConfigByValues(
+      mapping,
+      currentConfig_.valueForKey);
+
+  if (matchingConfig)
   {
-    const Config& cfg = kNtetMappings[edoIdx_].getConfig(tc);
-    if (currentConfig_.valueForKey == cfg.valueForKey)
+    currentConfig_.tuningCenter =
+      matchingConfig->tuningCenter;
+
+    if (!Intona::Tuning::isKeyCompatibleWithTuningCenter(
+          currentConfig_.tuningCenter,
+          currentKeyTonic_,
+          currentKeyIsMinor_))
     {
-      currentConfig_.tuningCenter = cfg.tuningCenter;
-      if (!Intona::Tuning::isKeyCompatibleWithTuningCenter(currentConfig_.tuningCenter, currentKeyTonic_, currentKeyIsMinor_))
-      {
-        currentKeyTonic_ = Config::invalid;
-        surfaceTab_->getNtetCircleWidget()->setKey(currentKeyTonic_, currentKeyIsMinor_);
-        currentKeyIsMinor_ = false;
-      }
-      return;
+      currentKeyTonic_ = Config::invalid;
+
+      surfaceTab_->getNtetCircleWidget()->setKey(
+        currentKeyTonic_,
+        currentKeyIsMinor_);
+
+      currentKeyIsMinor_ = false;
     }
+
+    return;
   }
 
   currentKeyTonic_ = Config::invalid;
-  surfaceTab_->getNtetCircleWidget()->setKey(currentKeyTonic_, currentKeyIsMinor_);
+
+  surfaceTab_->getNtetCircleWidget()->setKey(
+    currentKeyTonic_,
+    currentKeyIsMinor_);
+
   currentKeyIsMinor_ = false;
   currentConfig_.tuningCenter = Config::invalid;
 }
@@ -1456,15 +1563,54 @@ void MainWindow::showEdoMenu()
 void MainWindow::captureCurrentConfigPreset()
 //-------------------------------------------
 {
-  if (std::find(configPresets_.begin(), configPresets_.end(), currentConfig_.valueForKey) != configPresets_.end())
+  const NtetMapping& mapping = kNtetMappings[edoIdx_];
+
+  const auto offset = findGlobalOffsetCents(
+    currentConfig_,
+    mapping,
+    currentGlobalOffsetCents_);
+
+  if (!offset)
+  {
+    qWarning()
+      << "Cannot capture tuning preset for EDO"
+      << int(mapping.N)
+      << ": no compatible global offset.";
+
+    return;
+  }
+
+  const TuningPreset preset{
+    currentConfig_.valueForKey,
+    currentConfig_.tuningCenter,
+    *offset
+  };
+
+  const auto existing = std::find_if(
+    configPresets_.begin(),
+    configPresets_.end(),
+    [&](const TuningPreset& saved)
+    {
+      return saved.values == preset.values
+        && saved.tuningCenter == preset.tuningCenter
+        && std::abs(
+          saved.globalOffsetCents
+          - preset.globalOffsetCents) < 0.0001;
+    });
+
+  if (existing != configPresets_.end())
     return;
 
-  configPresets_.push_back(currentConfig_.valueForKey);
-  surfaceTab_->getConfigPresetListWidget()->setPresets(configPresets_);
-  surfaceTab_->getConfigPresetListWidget()->setCurrentPresetIndex(configPresets_.size() - 1);
+  configPresets_.push_back(preset);
+
+  surfaceTab_->getConfigPresetListWidget()->setPresets(
+    configPresets_);
+
+  surfaceTab_->getConfigPresetListWidget()->setCurrentPresetIndex(
+      static_cast<int>(configPresets_.size()) - 1);
+
   savePresetsForCurrentEDO();
 }
-
 //---------------------------------------------
 void MainWindow::onAfterTouchBehaviourChanged()
 //---------------------------------------------

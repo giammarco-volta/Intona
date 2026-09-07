@@ -61,8 +61,7 @@ void NtetCircleWidget::setConfig(const Config& config)
 //----------------------------------------------------
 {
   config_ = &config;
-  if (config_->tuningCenter != Config::invalid)
-    rebuildCircleLabels();
+  rebuildCircleLabels();
   update();
 }
 
@@ -522,11 +521,34 @@ void NtetCircleWidget::rebuildCircleLabels()
   labels_.clear();
 
   const int N = mapping_->N;
-  const int tc = config_->tuningCenter;
+  const int referenceValue =
+    config_->tuningCenter != Config::invalid
+      ? config_->tuningCenter
+      : 0;
 
   for (int pitchStep = 0; pitchStep < N; ++pitchStep)
   {
-    int bestValue = findBestSpellingForPitchStep(pitchStep, tc, *mapping_);
+    int bestValue = Config::invalid;
+
+    // Se questo grado è presente nella configurazione corrente,
+    // conserva esattamente la grafia salvata nel preset.
+    for (const int8_t value : config_->valueForKey)
+    {
+      if (mod(value * mapping_->fifthStep, mapping_->N) == pitchStep)
+      {
+        bestValue = value;
+        break;
+      }
+    }
+
+    // Per i gradi estranei ai dodici tasti scegli una grafia stabile.
+    if (bestValue == Config::invalid)
+    {
+      bestValue = findBestSpellingForPitchStep(
+        pitchStep,
+        referenceValue,
+        *mapping_);
+    }
 
     CircleLabel label;
     label.value5 = bestValue;

@@ -29,6 +29,7 @@ class MainWindow : public QMainWindow
   using ChordRootAnalysis = Intona::Tuning::ChordRootAnalysis;
   using AfterTouch = Intona::Tuning::AfterTouch;
   using ScaleKeyScore = Intona::Tuning::ScaleKeyScore;
+  using TuningPreset = Intona::Tuning::TuningPreset;
 
 public:
   explicit MainWindow(QWidget* parent = nullptr);
@@ -41,7 +42,6 @@ private:
 
   std::optional<KeyChoice> chooseBestLocalKey(uint16_t pressedKeyMask12, const Config& config, const NtetMapping& mapping) const;
 
-  const Config* chooseConfigThroughTuningCenter(int8_t tuningCenter);
   AdaptiveChoice chooseBestInterpretationAndConfigByChords(uint8_t midiNote, uint8_t velocity, uint32_t timeMs, bool isOn);
 
   const Config* findConfigByScale(uint8_t midiNoteOff, uint32_t timeMs, int8_t& rKeyTonic, bool& rIsMinor);
@@ -133,7 +133,7 @@ private:
 
   std::array<std::vector<int>, 12> allowedValuesPerKey_;
 
-  std::vector<std::array<int8_t, 12>> configPresets_;
+  std::vector<TuningPreset> configPresets_;
 
   ChordRecognizer chordRecognizer_;
 

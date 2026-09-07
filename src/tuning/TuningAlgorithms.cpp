@@ -338,5 +338,32 @@ ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes)
   return result;
 }
 
+const Config& configForTuningCenter(
+  const NtetMapping& mapping,
+  int8_t tuningCenter)
+{
+  const int8_t normalizedCenter =
+    wrapFifthsToMappingRange(tuningCenter, mapping);
+
+  return mapping.getConfig(normalizedCenter);
+}
+
+const Config* findConfigByValues(
+  const NtetMapping& mapping,
+  const std::array<int8_t, 12>& values)
+{
+  for (int center = mapping.minValue;
+       center <= mapping.maxValue;
+       ++center)
+  {
+    const Config& config =
+      mapping.getConfig(static_cast<int8_t>(center));
+
+    if (config.valueForKey == values)
+      return &config;
+  }
+
+  return nullptr;
+}
 
 } // namespace Intona::Tuning

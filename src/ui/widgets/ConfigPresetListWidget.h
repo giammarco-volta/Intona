@@ -6,7 +6,7 @@
 #include <QMouseEvent>
 #include <vector>
 
-#include "../../Config.hpp"
+#include "../../tuning/TuningTypes.h"
 
 
 //-------------------------------------------
@@ -19,7 +19,7 @@ public:
   explicit ConfigPresetListWidget(QWidget* parent = nullptr);
 
   void setMapping(const NtetMapping* mapping);
-  void setPresets(const std::vector<std::array<int8_t, 12>>& presets);
+  void setPresets(const std::vector<Intona::Tuning::TuningPreset>& presets);
   void setCurrentPresetIndex(int index);
 
 protected:
@@ -48,7 +48,7 @@ private:
   std::vector<PresetHit> hits_;
 
   const NtetMapping* mapping_ = nullptr;
-  const std::vector<std::array<int8_t, 12>>* presets_ = nullptr;
+  const std::vector<Intona::Tuning::TuningPreset>* presets_ = nullptr;
 
   int currentPresetIndex_ = -1;
 };

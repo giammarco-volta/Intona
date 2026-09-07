@@ -4,6 +4,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <array>
 
 namespace Intona::Tuning
 {
@@ -21,5 +22,13 @@ bool isKeyCompatibleWithTuningCenter(
 
 ChordRootAnalysis inferChordRootByStack(
   const std::vector<ActiveNote>& notes);
+
+const Config& configForTuningCenter(
+  const NtetMapping& mapping,
+  int8_t tuningCenter);
+
+const Config* findConfigByValues(
+  const NtetMapping& mapping,
+  const std::array<int8_t, 12>& values);
 
 } // namespace Intona::Tuning
