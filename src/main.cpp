@@ -9,6 +9,7 @@
 #include "ManualDocumentParser.h"
 #include "About.h"
 #include "midi/MidiController.h"
+#include "tuning/TuningController.h"
 
 #ifdef Q_OS_ANDROID
 #include <QDebug>
@@ -68,6 +69,7 @@ int main(int argc, char** argv)
   }
 
   MidiController midiController;
+  Intona::Tuning::TuningController tuningController;
 
   const QVariantList userManualBlocks =
     NaadaLab::ManualDocumentParser::loadFromResource(
@@ -99,6 +101,8 @@ int main(int argc, char** argv)
 #endif
 
   engine.rootContext()->setContextProperty("MidiController", &midiController);
+
+  engine.rootContext()->setContextProperty("TuningController", &tuningController);
 
   engine.rootContext()->setContextProperty("DebugBuild", debugBuild);
 

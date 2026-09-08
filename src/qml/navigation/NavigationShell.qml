@@ -113,9 +113,7 @@ Item {
 
             currentIndex: root.sectionIndex(root.currentSection)
 
-            PlaceholderPage {
-                pageTitle: qsTr("Tuning Surface")
-                titleFontSize: root.pageTitleFontSize
+            TuningSurfacePage {
             }
 
             MidiSetupPage {

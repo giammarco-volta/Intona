@@ -49,6 +49,8 @@ set(INTONA_SOURCES
   src/tuning/TuningTypes.h
   src/tuning/TuningAlgorithms.h
   src/tuning/TuningAlgorithms.cpp
+  src/tuning/TuningController.h
+  src/tuning/TuningController.cpp
   src/About.h
 
   external/Common/src/ui/widgets/MidiChannelSelector.h
@@ -98,9 +100,12 @@ qt_add_qml_module(Intona
   QML_FILES
     src/qml/Main.qml
     src/qml/navigation/NavigationShell.qml
-    src/qml/pages/PlaceholderPage.qml
     src/qml/controls/MidiChannelGrid.qml
+	 src/qml/controls/TuningCircle.qml
+    src/qml/controls/TuningKeyboard.qml
+    src/qml/pages/PlaceholderPage.qml
     src/qml/pages/MidiSetupPage.qml
+    src/qml/pages/TuningSurfacePage.qml
     src/qml/pages/UserManualPage.qml
     src/qml/pages/AboutPage.qml
 )
