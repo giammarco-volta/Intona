@@ -7,7 +7,6 @@
 
 #include <cstdint>
 #include <vector>
-#include <optional>
 
 #include "../../Config.hpp"
 
@@ -34,8 +33,6 @@ public:
   void setChord(int8_t root, QString chordName);
   void setChordRoot(int8_t value);
   void setAfterTouchBehaviourText(const QString& text, bool enabled);
-
-  std::optional<int8_t> valueForPitchStep(int pitchStep) const;
 
 private:
   void drawKeyboardLabels(QPainter& p, const QRectF& r);

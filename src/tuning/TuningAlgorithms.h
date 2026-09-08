@@ -31,6 +31,25 @@ const Config* findConfigByValues(
   const NtetMapping& mapping,
   const std::array<int8_t, 12>& values);
 
+std::optional<int8_t> spellingForPitchStep(
+  int pitchStep,
+  const Config& config,
+  const NtetMapping& mapping);
+
+bool isValueAllowedForKey(
+  int keyIndex,
+  int value,
+  const Config& config,
+  const NtetMapping& mapping,
+  double globalOffsetCents);
+
+std::optional<int8_t> steppedValueForKey(
+  int keyIndex,
+  int direction,
+  const Config& config,
+  const NtetMapping& mapping,
+  double globalOffsetCents);
+
 std::optional<double> findGlobalOffsetCents(
   const Config& config,
   const NtetMapping& mapping,

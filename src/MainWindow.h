@@ -51,10 +51,8 @@ private:
 
   void applyCurrentConfig(IMidiOut& out, bool rebuildMask, uint8_t presetIdx);
 
-  void rebuildAllowedValuesPerKey();
   void updateStepButtonEnablement();
   void stepKeyPitch(int keyIndex, int direction);
-  bool isValueAllowedForKey(int keyIndex, int value) const;
 
   void setEDO(uint8_t idx);
   void enableRTAdapting(bool enable);
@@ -130,8 +128,6 @@ private:
   AfterTouch afterTouch_ = AfterTouch::stepUp;
   uint8_t afterTouchThreshold_ = 64;
   bool readyToBehaveAftertouch = true;
-
-  std::array<std::vector<int>, 12> allowedValuesPerKey_;
 
   std::vector<TuningPreset> configPresets_;
 

@@ -832,61 +832,11 @@ void MainWindow::applyCurrentConfig(IMidiOut& out, bool rebuildMask, uint8_t pre
   surfaceTab_->getConfigPresetListWidget()->setCurrentPresetIndex(presetIdx);
 }
 
-namespace
-{
-  constexpr double kMaxStdTuningCents = 99.0;
-
-  double normalizeCentsDiff(double diff)
-  {
-    while (diff > 600.0)
-      diff -= 1200.0;
-
-    while (diff <= -600.0)
-      diff += 1200.0;
-
-    return diff;
-  }
-
-  double centsOffsetFromKey(int keyIndex, int value5, const NtetMapping& m)
-  {
-    const int pitchStep = mod(value5 * m.fifthStep, m.N);
-
-    const double pitchCents =
-      1200.0 * double(pitchStep) / double(m.N);
-
-    const double keyCents =
-      100.0 * double(keyIndex);
-
-    return normalizeCentsDiff(pitchCents - keyCents);
-  }
-}
-
-//-------------------------------------------
-void MainWindow::rebuildAllowedValuesPerKey()
-//-------------------------------------------
-{
-  const auto& m = kNtetMappings[edoIdx_];
-
-  for (auto& v : allowedValuesPerKey_)
-    v.clear();
-
-  for (int value = kConfigMaskMin; value <= kConfigMaskMax; ++value)
-  {
-    for (int key = 0; key < 12; ++key)
-    {
-      const double offset = centsOffsetFromKey(key, value, m);
-
-      if (offset >= -99.0 && offset <= 99.0)
-        allowedValuesPerKey_[key].push_back(static_cast<int8_t>(value));
-    }
-  }
-}
-
 //-------------------------------------------
 void MainWindow::updateStepButtonEnablement()
 //-------------------------------------------
 {
-  const auto& m = kNtetMappings[edoIdx_];
+  const auto& mapping = kNtetMappings[edoIdx_];
   auto* circle = surfaceTab_->getNtetCircleWidget();
 
   std::array<bool, 12> canRaise{};
@@ -894,74 +844,24 @@ void MainWindow::updateStepButtonEnablement()
 
   for (int key = 0; key < 12; ++key)
   {
-    const int currentValue = currentConfig_.valueForKey[key];
-    const int currentPitch = mod(currentValue * m.fifthStep, m.N);
+    canRaise[key] =
+      Intona::Tuning::steppedValueForKey(
+        key,
+        +1,
+        currentConfig_,
+        mapping,
+        currentGlobalOffsetCents_).has_value();
 
-    const int raisedPitch = mod(currentPitch + 1, m.N);
-    const int loweredPitch = mod(currentPitch - 1, m.N);
-
-    const auto raisedValue = circle->valueForPitchStep(raisedPitch);
-    const auto loweredValue = circle->valueForPitchStep(loweredPitch);
-
-    canRaise[key] = raisedValue.has_value() && isValueAllowedForKey(key, *raisedValue);
-    canLower[key] = loweredValue.has_value() && isValueAllowedForKey(key, *loweredValue);
+    canLower[key] =
+      Intona::Tuning::steppedValueForKey(
+        key,
+        -1,
+        currentConfig_,
+        mapping,
+        currentGlobalOffsetCents_).has_value();
   }
 
   circle->setKeyStepButtonEnabled(canRaise, canLower);
-}
-
-//------------------------------------------------------------------
-bool MainWindow::isValueAllowedForKey(int keyIndex, int value) const
-//------------------------------------------------------------------
-{
-  const auto& values = allowedValuesPerKey_[keyIndex];
-
-  if (std::find(values.begin(), values.end(), value) == values.end())
-    return false;
-
-  const auto& m = kNtetMappings[edoIdx_];
-
-  const double candidateDetune = centsOffsetFromKey(keyIndex, value, m) - currentGlobalOffsetCents_;
-
-  if (candidateDetune < -99.0 || candidateDetune > 99.0)
-    return false;
-
-  auto absoluteKeyboardCents = [&](int key, int value5) -> double
-    {
-      return 100.0 * double(key) + centsOffsetFromKey(key, value5, m);
-    };
-
-  const double candidateCents = absoluteKeyboardCents(keyIndex, value);
-
-  const int prevKey = (keyIndex + 11) % 12;
-  const int nextKey = (keyIndex +  1) % 12;
-
-  const int prevValue = currentConfig_.valueForKey[prevKey];
-  const int nextValue = currentConfig_.valueForKey[nextKey];
-
-  if (prevValue != Config::invalid)
-  {
-    double prevCents = absoluteKeyboardCents(prevKey, prevValue);
-
-    if (prevKey > keyIndex)
-      prevCents -= 1200.0;
-
-    if (candidateCents <= prevCents)
-      return false;
-  }
-
-  if (nextValue != Config::invalid)
-  {
-    double nextCents = absoluteKeyboardCents(nextKey, nextValue);
-
-    if (nextKey < keyIndex)
-      nextCents += 1200.0;
-
-    if (candidateCents >= nextCents)
-      return false;
-  }
-
-  return true;
 }
 
 //---------------------------------------------------------------------------------------------------
@@ -1383,8 +1283,6 @@ void MainWindow::setEDO(uint8_t idx)
   const auto& m = kNtetMappings[edoIdx_];
   invFifthStep_ = modInverse(m.fifthStep, m.N);
 
-  rebuildAllowedValuesPerKey();
-
   if (!activeNotes_.empty())
   {
     for (int ch = 0; ch < 16; ++ch)
@@ -1447,30 +1345,26 @@ void MainWindow::FindBetterTuningCenter(const NtetMapping& mapping)
 void MainWindow::stepKeyPitch(int keyIndex, int direction)
 //--------------------------------------------------------
 {
-  if (keyIndex < 0 || keyIndex >= 12)
-    return;
+  const auto& mapping = kNtetMappings[edoIdx_];
 
-  const auto& m = kNtetMappings[edoIdx_];
-
-  const int currentValue = currentConfig_.valueForKey[keyIndex];
-  const int currentPitch = mod(currentValue * m.fifthStep, m.N);
-  const int targetPitch = mod(currentPitch + direction, m.N);
-
-  // Nuovo punto chiave:
-  // usa lo spelling già visualizzato sul circle per quello step EDO.
-  const std::optional<int8_t> targetValue =
-    surfaceTab_->getNtetCircleWidget()->valueForPitchStep(targetPitch);
+  const auto targetValue =
+    Intona::Tuning::steppedValueForKey(
+      keyIndex,
+      direction,
+      currentConfig_,
+      mapping,
+      currentGlobalOffsetCents_);
 
   if (!targetValue)
     return;
 
-  if (!isValueAllowedForKey(keyIndex, *targetValue))
-    return;
-
   currentConfig_.valueForKey[keyIndex] = *targetValue;
 
-  FindBetterTuningCenter(m);
-  applyCurrentConfig(midiSettingTab_->MidiOut(), true, -1);
+  FindBetterTuningCenter(mapping);
+  applyCurrentConfig(
+    midiSettingTab_->MidiOut(),
+    true,
+    -1);
 
   enableRTAdapting(false);
 }

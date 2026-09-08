@@ -3,6 +3,7 @@
 #include "../Chords.h"
 #include <algorithm>
 #include <iterator>
+#include <limits>
 
 //#define CONSIDER_QUARTAL_CHORDS
 
@@ -433,6 +434,193 @@ std::optional<double> findGlobalOffsetCents(
     preferredOffset,
     lowerBound,
     upperBound);
+}
+
+std::optional<int8_t> spellingForPitchStep(
+  int pitchStep,
+  const Config& config,
+  const NtetMapping& mapping)
+{
+  if (mapping.N == 0)
+    return std::nullopt;
+
+  pitchStep = mod(pitchStep, mapping.N);
+
+  // Conserva la grafia esatta già presente nella configurazione.
+  for (const int8_t value : config.valueForKey)
+  {
+    if (value < kConfigMaskMin || value > kConfigMaskMax)
+      continue;
+
+    if (mod(value * mapping.fifthStep, mapping.N)
+      == pitchStep)
+    {
+      return value;
+    }
+  }
+
+  const int referenceValue =
+    config.tuningCenter != Config::invalid
+      ? config.tuningCenter
+      : 0;
+
+  int bestValue = 0;
+  int bestDistance = std::numeric_limits<int>::max();
+  bool found = false;
+
+  for (int value = kConfigMaskMin;
+       value <= kConfigMaskMax;
+       ++value)
+  {
+    if (mod(value * mapping.fifthStep, mapping.N)
+      != pitchStep)
+    {
+      continue;
+    }
+
+    const int distance =
+      std::abs(value - referenceValue);
+
+    if (distance < bestDistance)
+    {
+      bestValue = value;
+      bestDistance = distance;
+      found = true;
+    }
+  }
+
+  if (!found)
+    return std::nullopt;
+
+  return static_cast<int8_t>(bestValue);
+}
+
+bool isValueAllowedForKey(
+  int keyIndex,
+  int value,
+  const Config& config,
+  const NtetMapping& mapping,
+  double globalOffsetCents)
+{
+  constexpr double limit = 99.0;
+
+  if (keyIndex < 0 || keyIndex >= 12)
+    return false;
+
+  if (value < kConfigMaskMin || value > kConfigMaskMax)
+    return false;
+
+  const double rawOffset =
+    rawOffsetForKey(keyIndex, value, mapping);
+
+  // Mantiene il vincolo usato dalla precedente tabella
+  // allowedValuesPerKey_.
+  if (rawOffset < -limit || rawOffset > limit)
+    return false;
+
+  const double candidateDetune =
+    rawOffset - globalOffsetCents;
+
+  if (candidateDetune < -limit
+    || candidateDetune > limit)
+  {
+    return false;
+  }
+
+  const auto absoluteKeyboardCents =
+    [&](int key, int keyValue)
+    {
+      return 100.0 * double(key)
+        + rawOffsetForKey(key, keyValue, mapping);
+    };
+
+  const double candidateCents =
+    absoluteKeyboardCents(keyIndex, value);
+
+  const int previousKey = (keyIndex + 11) % 12;
+  const int nextKey = (keyIndex + 1) % 12;
+
+  const int previousValue =
+    config.valueForKey[previousKey];
+
+  const int nextValue =
+    config.valueForKey[nextKey];
+
+  if (previousValue != Config::invalid)
+  {
+    double previousCents =
+      absoluteKeyboardCents(previousKey, previousValue);
+
+    if (previousKey > keyIndex)
+      previousCents -= 1200.0;
+
+    if (candidateCents <= previousCents)
+      return false;
+  }
+
+  if (nextValue != Config::invalid)
+  {
+    double nextCents =
+      absoluteKeyboardCents(nextKey, nextValue);
+
+    if (nextKey < keyIndex)
+      nextCents += 1200.0;
+
+    if (candidateCents >= nextCents)
+      return false;
+  }
+
+  return true;
+}
+
+std::optional<int8_t> steppedValueForKey(
+  int keyIndex,
+  int direction,
+  const Config& config,
+  const NtetMapping& mapping,
+  double globalOffsetCents)
+{
+  if (keyIndex < 0 || keyIndex >= 12)
+    return std::nullopt;
+
+  if (direction != -1 && direction != 1)
+    return std::nullopt;
+
+  const int currentValue =
+    config.valueForKey[keyIndex];
+
+  if (currentValue < kConfigMaskMin
+    || currentValue > kConfigMaskMax)
+  {
+    return std::nullopt;
+  }
+
+  const int currentPitch =
+    mod(currentValue * mapping.fifthStep, mapping.N);
+
+  const int targetPitch =
+    mod(currentPitch + direction, mapping.N);
+
+  const auto targetValue =
+    spellingForPitchStep(
+      targetPitch,
+      config,
+      mapping);
+
+  if (!targetValue)
+    return std::nullopt;
+
+  if (!isValueAllowedForKey(
+        keyIndex,
+        *targetValue,
+        config,
+        mapping,
+        globalOffsetCents))
+  {
+    return std::nullopt;
+  }
+
+  return targetValue;
 }
 
 } // namespace Intona::Tuning

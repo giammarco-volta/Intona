@@ -13,6 +13,7 @@
 #include <cmath>
 
 #include "../../StringUtilities.hpp"
+#include "../../tuning/TuningAlgorithms.h"
 
 namespace
 {
@@ -124,24 +125,6 @@ void NtetCircleWidget::setAfterTouchBehaviourText(const QString& text, bool enab
   afterTouchBehaviourText_ = text;
   afterTouchEnabled_ = enabled;
   update();
-}
-
-//----------------------------------------------------------------------------
-std::optional<int8_t> NtetCircleWidget::valueForPitchStep(int pitchStep) const
-//----------------------------------------------------------------------------
-{
-  if (!mapping_)
-    return std::nullopt;
-
-  pitchStep = mod(pitchStep, mapping_->N);
-
-  for (const auto& label : labels_)
-  {
-    if (label.pitchStep == pitchStep)
-      return static_cast<int8_t>(label.value5);
-  }
-
-  return std::nullopt;
 }
 
 //-----------------------------------------
@@ -487,30 +470,6 @@ void NtetCircleWidget::drawKeyboardStepButtons(QPainter& p, const QRectF& r)
   }
 }
 
-//-------------------------------------------------------------------------------------------
-int findBestSpellingForPitchStep(int pitchStep, int tuningCenter, const NtetMapping& mapping)
-//-------------------------------------------------------------------------------------------
-{
-  int bestValue = 0;
-  int bestDistance = INT_MAX;
-
-  for (int value = kConfigMaskMin; value <= kConfigMaskMax; ++value)
-  {
-    if (mod(value * mapping.fifthStep, mapping.N) != pitchStep)
-      continue;
-
-    const int distance = std::abs(value - tuningCenter);
-
-    if (distance < bestDistance)
-    {
-      bestDistance = distance;
-      bestValue = value;
-    }
-  }
-
-  return bestValue;
-}
-
 //------------------------------------------
 void NtetCircleWidget::rebuildCircleLabels()
 //------------------------------------------
@@ -521,39 +480,23 @@ void NtetCircleWidget::rebuildCircleLabels()
   labels_.clear();
 
   const int N = mapping_->N;
-  const int referenceValue =
-    config_->tuningCenter != Config::invalid
-      ? config_->tuningCenter
-      : 0;
 
   for (int pitchStep = 0; pitchStep < N; ++pitchStep)
   {
-    int bestValue = Config::invalid;
-
-    // Se questo grado è presente nella configurazione corrente,
-    // conserva esattamente la grafia salvata nel preset.
-    for (const int8_t value : config_->valueForKey)
-    {
-      if (mod(value * mapping_->fifthStep, mapping_->N) == pitchStep)
-      {
-        bestValue = value;
-        break;
-      }
-    }
-
-    // Per i gradi estranei ai dodici tasti scegli una grafia stabile.
-    if (bestValue == Config::invalid)
-    {
-      bestValue = findBestSpellingForPitchStep(
+    const auto value =
+      Intona::Tuning::spellingForPitchStep(
         pitchStep,
-        referenceValue,
+        *config_,
         *mapping_);
-    }
+
+    if (!value)
+      continue;
 
     CircleLabel label;
-    label.value5 = bestValue;
-    label.pitchStep = pitchStep;
-    label.name = noteNameFromFifths(bestValue);
+    label.value5 = *value;
+    label.pitchStep =
+      static_cast<uint8_t>(pitchStep);
+    label.name = noteNameFromFifths(*value);
 
     labels_.push_back(label);
   }
