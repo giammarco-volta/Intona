@@ -8,6 +8,8 @@
 #include <QStringList>
 #include <QVariantList>
 
+class MidiController;
+
 namespace Intona::Tuning
 {
 
@@ -65,7 +67,9 @@ class TuningController final : public QObject
              NOTIFY tuningStateChanged)
 
 public:
-  explicit TuningController(QObject* parent = nullptr);
+  explicit TuningController(
+    MidiController* midiController,
+    QObject* parent = nullptr);
 
   int edoIndex() const;
   void setEdoIndex(int index);
@@ -100,6 +104,7 @@ signals:
   void tuningStateChanged();
 
 private:
+  MidiController* midiController_ = nullptr;
   int edoIndex_ = 10;
   Config currentConfig_;
   double currentGlobalOffsetCents_ = 0.0;
@@ -108,6 +113,13 @@ private:
   std::vector<TuningPreset> loadPresets() const;
   void savePresets(
     const std::vector<TuningPreset>& presets) const;
+  void sendCurrentTuning(bool sendGlobalOffset);
+  void handleMidiNoteOn(int note, int velocity);
+  void handleMidiNoteOff(int note, int velocity);
+  void handleMidiChannelMessage(
+    int code,
+    int data1,
+    int data2);
 };
 
 } // namespace Intona::Tuning

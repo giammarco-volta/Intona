@@ -1,5 +1,8 @@
 #include "TuningController.h"
 #include "TuningAlgorithms.h"
+#include "TuningMidiOutput.h"
+
+#include "../midi/MidiController.h"
 
 #include <QVariantMap>
 #include <algorithm>
@@ -11,8 +14,11 @@
 namespace Intona::Tuning
 {
 
-TuningController::TuningController(QObject* parent)
-  : QObject(parent)
+TuningController::TuningController(
+  MidiController* midiController,
+  QObject* parent)
+  : QObject(parent),
+    midiController_(midiController)
 {
   QSettings settings("NaadaLab", "Intona");
   settings.beginGroup("status");
@@ -41,6 +47,33 @@ TuningController::TuningController(QObject* parent)
   {
     currentGlobalOffsetCents_ = *offset;
   }
+
+  connect(
+    midiController_,
+    &MidiController::midiNoteOnReceived,
+    this,
+    [this](int note, int velocity, quint32)
+    {
+      handleMidiNoteOn(note, velocity);
+    });
+
+  connect(
+    midiController_,
+    &MidiController::midiNoteOffReceived,
+    this,
+    [this](int note, int velocity, quint32)
+    {
+      handleMidiNoteOff(note, velocity);
+    });
+
+  connect(
+    midiController_,
+    &MidiController::midiChannelMessageReceived,
+    this,
+    [this](int code, int data1, int data2, quint32)
+    {
+      handleMidiChannelMessage(code, data1, data2);
+    });
 }
 
 int TuningController::edoIndex() const
@@ -79,6 +112,7 @@ void TuningController::setEdoIndex(int index)
   settings.setValue("edoIndex", edoIndex_);
   settings.endGroup();
 
+  sendCurrentTuning(true);
   emit tuningStateChanged();
 }
 
@@ -131,6 +165,7 @@ void TuningController::selectTuningCenter(int value)
     currentGlobalOffsetCents_ = *offset;
   }
 
+  sendCurrentTuning(true);
   emit tuningStateChanged();
 }
 
@@ -225,6 +260,7 @@ void TuningController::stepKeyPitch(
     ? matchingConfig->tuningCenter
     : Config::invalid;
 
+  sendCurrentTuning(false);
   emit tuningStateChanged();
 }
 
@@ -454,6 +490,7 @@ void TuningController::applyPreset(int index)
   currentConfig_ = candidate;
   currentGlobalOffsetCents_ = *offset;
   currentPresetIndex_ = index;
+  sendCurrentTuning(true);
   emit tuningStateChanged();
 }
 
@@ -471,6 +508,113 @@ void TuningController::deletePreset(int index)
 
   savePresets(presets);
   emit tuningStateChanged();
+}
+
+void TuningController::sendCurrentTuning(
+  bool sendGlobalOffset)
+{
+  if (!midiController_)
+    return;
+
+  IMidiOut* out = midiController_->midiOut();
+  if (!out)
+    return;
+
+  const uint16_t channelMask = static_cast<uint16_t>(
+    midiController_->midiOutChannelMask() & 0xffffu);
+
+  if (sendGlobalOffset)
+  {
+    sendRpnCoarseFineTuning(
+      *out,
+      channelMask,
+      currentGlobalOffsetCents_);
+  }
+
+  const NtetMapping& mapping =
+    kNtetMappings[edoIndex_];
+
+  sendTuningSysEx(
+    *out,
+    channelMask,
+    mapping.N,
+    mapping.fifthStep,
+    currentConfig_,
+    currentGlobalOffsetCents_);
+}
+
+void TuningController::handleMidiNoteOn(
+  int note,
+  int velocity)
+{
+  IMidiOut* out = midiController_->midiOut();
+  if (!out)
+    return;
+
+  const quint32 channelMask =
+    midiController_->midiOutChannelMask();
+
+  for (int channel = 0; channel < 16; ++channel)
+  {
+    if ((channelMask & (quint32(1) << channel)) == 0)
+      continue;
+
+    sendNoteOn(
+      *out,
+      static_cast<uint8_t>(channel),
+      static_cast<uint8_t>(note),
+      static_cast<uint8_t>(velocity));
+  }
+}
+
+void TuningController::handleMidiNoteOff(
+  int note,
+  int velocity)
+{
+  IMidiOut* out = midiController_->midiOut();
+  if (!out)
+    return;
+
+  const quint32 channelMask =
+    midiController_->midiOutChannelMask();
+
+  for (int channel = 0; channel < 16; ++channel)
+  {
+    if ((channelMask & (quint32(1) << channel)) == 0)
+      continue;
+
+    sendNoteOff(
+      *out,
+      static_cast<uint8_t>(channel),
+      static_cast<uint8_t>(note),
+      static_cast<uint8_t>(velocity));
+  }
+}
+
+void TuningController::handleMidiChannelMessage(
+  int code,
+  int data1,
+  int data2)
+{
+  IMidiOut* out = midiController_->midiOut();
+  if (!out)
+    return;
+
+  const quint32 channelMask =
+    midiController_->midiOutChannelMask();
+
+  for (int channel = 0; channel < 16; ++channel)
+  {
+    if ((channelMask & (quint32(1) << channel)) == 0)
+      continue;
+
+    sendChannelMessage(
+      *out,
+      static_cast<uint8_t>(channel),
+      static_cast<uint8_t>(code),
+      static_cast<uint8_t>(data1),
+      static_cast<uint8_t>(data2));
+  }
 }
 
 } // namespace Intona::Tuning

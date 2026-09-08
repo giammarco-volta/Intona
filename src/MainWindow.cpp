@@ -26,78 +26,8 @@
 #include "Chords.h"
 #include "TuningCenterFinder.h"
 #include "tuning/TuningAlgorithms.h"
+#include "tuning/TuningMidiOutput.h"
 #include "About.h"
-
-
-//---------------------------------------------------------------------------
-static void sendRpnCoarseTuning(IMidiOut& out, uint8_t ch, uint8_t semitones)
-//---------------------------------------------------------------------------
-{
-  assert(semitones < 128);
-
-  // RPN Coarse Tuning: RPN 0,2 ;
-  out.sendShort(0xB0 | (ch & 0x0F), 101, 0);        // CC101 RPN MSB
-  out.sendShort(0xB0 | (ch & 0x0F), 100, 2);        // CC100 RPN LSB
-  out.sendShort(0xB0 | (ch & 0x0F), 6, semitones);  // CC38 Data Entry MSB
-  out.sendShort(0xB0 | (ch & 0x0F), 101, 127);      // deselect
-  out.sendShort(0xB0 | (ch & 0x0F), 100, 127);
-}
-
-//------------------------------------------------------------------------------------------
-static void sendRpnFineTuning(IMidiOut& out, uint8_t ch, uint8_t centsMSB, uint8_t centsLSB)
-//------------------------------------------------------------------------------------------
-{
-  // RPN Coarse Tuning: RPN 0,1 ;
-  out.sendShort(0xB0 | (ch & 0x0F), 101, 0);        // CC101 RPN MSB
-  out.sendShort(0xB0 | (ch & 0x0F), 100, 1);        // CC100 RPN LSB
-  out.sendShort(0xB0 | (ch & 0x0F),   6, centsMSB); // CC6 Data Entry MSB
-  out.sendShort(0xB0 | (ch & 0x0F),  38, centsLSB); // CC38 Data Entry LSB
-  out.sendShort(0xB0 | (ch & 0x0F), 101, 127);      // deselect
-  out.sendShort(0xB0 | (ch & 0x0F), 100, 127);
-}
-
-//-----------------------------------------------------------------------
-static void sendProgramChange(IMidiOut& out, uint8_t ch, uint8_t program)
-//-----------------------------------------------------------------------
-{
-  static constexpr uint8_t dummyData2 = 0;
-  out.sendShort(0xC0 | (ch & 0x0F), program, dummyData2);
-}
-
-//---------------------------------------------------------------------------------
-static void sendControlChange(IMidiOut& out, uint8_t ch, uint8_t cc, uint8_t value)
-//---------------------------------------------------------------------------------
-{
-  out.sendShort(0xB0 | (ch & 0x0F), cc, value);
-}
-
-//------------------------------------------------------------------------------
-static void sendNoteOn(IMidiOut& out, uint8_t ch, uint8_t key, uint8_t velocity)
-//------------------------------------------------------------------------------
-{
-  out.sendShort(0x90 | (ch & 0x0F), key, velocity);
-}
-
-//-------------------------------------------------------------------------------
-static void sendNoteOff(IMidiOut& out, uint8_t ch, uint8_t key, uint8_t velocity)
-//-------------------------------------------------------------------------------
-{
-  out.sendShort(0x80 | (ch & 0x0F), key, velocity);
-}
-
-//-----------------------------------------------------------------------------------------------
-static void sendChannelMsg(IMidiOut& out, uint8_t ch, uint8_t code, uint8_t data1, uint8_t data2)
-//-----------------------------------------------------------------------------------------------
-{
-  out.sendShort(code | (ch & 0x0F), data1, data2);
-}
-
-//----------------------------------------------------
-static void sendAllNotesOff(IMidiOut& out, uint8_t ch)
-//----------------------------------------------------
-{
-  out.sendShort(0xB0 | (ch & 0x0F), 123, 0);
-}
 
 //-----------------------------------------------------------
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent)
@@ -347,117 +277,30 @@ void MainWindow::setConfig(const Config* cfg, const NtetMapping& m)
 void MainWindow::sendRpnCoarseFineTuning(double cents)
 //----------------------------------------------------
 {
-  int coarse = std::lround(cents / 100.0);
-  double fine = cents - coarse * 100.0;
-  assert(fine >= -50.0 && fine <= 50.0);
+  uint16_t channelMask = 0;
+  for (int channel = 0; channel < 16; ++channel)
+    if (midiSettingTab_->isOutChnEnabled(channel))
+      channelMask |= uint16_t(1) << channel;
 
-  int fine14 = std::lround((fine + 64.0) * 128.0);
-  fine14 = std::clamp(fine14, 0, 16383);
-
-  uint8_t fineMsb = fine14 / 128;
-  uint8_t fineLsb = fine14 % 128;
-
-
-  auto& out = midiSettingTab_->MidiOut();
-
-  for (uint8_t ch = 0; ch < 16; ++ch)
-  {
-    if (midiSettingTab_->isOutChnEnabled(ch))
-    {
-      out.sendShort(0xB0 | (ch & 0x0F), 101, 0);          // CC101 RPN MSB
-
-      //Coarse tuning: RPN 0,2
-      out.sendShort(0xB0 | (ch & 0x0F), 100, 2);          // CC100 RPN LSB
-      out.sendShort(0xB0 | (ch & 0x0F), 6, 64 + coarse);  // CC38 Data Entry MSB
-
-      //Coarse tuning: RPN 0,2
-      out.sendShort(0xB0 | (ch & 0x0F), 100, 1);          // CC100 RPN LSB
-      out.sendShort(0xB0 | (ch & 0x0F), 6, fineMsb);      // CC6 Data Entry MSB
-      out.sendShort(0xB0 | (ch & 0x0F), 38, fineLsb);     // CC38 Data Entry LSB
-
-      out.sendShort(0xB0 | (ch & 0x0F), 101, 127);        // deselect
-      out.sendShort(0xB0 | (ch & 0x0F), 100, 127);
-    }
-  }
+  Intona::Tuning::sendRpnCoarseFineTuning(
+    midiSettingTab_->MidiOut(), channelMask, cents);
 }
 //---------------------------------------------------------------------------
 void MainWindow::SendTuningSysex(uint8_t N, uint8_t fifthStep, IMidiOut* out)
 //---------------------------------------------------------------------------
 {
-  auto mts14BitToCents = [](uint16_t v)
-    {
-      return (double(v) - 8192.0) * 100.0 / 8192.0;
-    };
+  uint16_t channelMask = 0;
+  for (int channel = 0; channel < 16; ++channel)
+    if (midiSettingTab_->isOutChnEnabled(channel))
+      channelMask |= uint16_t(1) << channel;
 
-  auto buildChannelMask = [this]() -> std::tuple<quint8, quint8, quint8>
-    {
-      quint8 ff = 0, gg = 0, hh = 0;
-
-      // chEnable_[0] -> channel 1
-      for (int ch = 0; ch < 16; ++ch)
-      {
-        if (midiSettingTab_->isOutChnEnabled(ch))
-        {
-          const int ch1 = ch + 1; // 1..16
-
-          if (ch1 >= 1 && ch1 <= 7)
-            hh |= quint8(1u << (ch1 - 1));           // bits 0..6
-          else if (ch1 >= 8 && ch1 <= 14)
-            gg |= quint8(1u << (ch1 - 8));           // bits 0..6
-          else if (ch1 >= 15 && ch1 <= 16)
-            ff |= quint8(1u << (ch1 - 15));          // bits 0..1
-        }
-      }
-
-      // safety: keep only defined bits
-      ff &= 0x03;
-      gg &= 0x7F;
-      hh &= 0x7F;
-      return { ff, gg, hh };
-    };
-
-  const auto [ff, gg, hh] = buildChannelMask();
-
-  const auto mtsTable = computeMtsTable(N, fifthStep, currentConfig_, currentGlobalOffsetCents_);
-
-
-  // ------------------------------------------------------------
-  // Build Real-Time Universal SysEx: Scale/Octave Tuning 2-byte
-  // F0 7E <device> 08 09 ff gg hh [ss tt]... F7
-  // where [ss tt] are 24 bytes for C..B.
-  // ff/gg/hh: channel bitmask; easiest is "all channels".
-  // ------------------------------------------------------------
-
-  std::vector<uint8_t> syx;
-  syx.reserve(1 + 1 + 1 + 1 + 1 + 3 + 24 + 1);
-
-  syx.push_back(uint8_t(0xF0));
-  syx.push_back(uint8_t(0x7F)); // real-time
-  syx.push_back(uint8_t(0x7F)); // device id: all devices (broadcast)
-  syx.push_back(uint8_t(0x08)); // subID1: MIDI Tuning Standard
-  syx.push_back(uint8_t(0x09)); // subID2: Scale/Octave Tuning 2-byte form (Non-Real-Time) :contentReference[oaicite:3]{index=3}
-
-  syx.push_back(uint8_t(ff));
-  syx.push_back(uint8_t(gg));
-  syx.push_back(uint8_t(hh));
-
-  // 24 bytes for C..B in that exact order
-  for (int s = 0; s < 12; ++s)
-  {
-    const uint16_t v = mtsTable[s]; // 0..16383, 8192 = 0 cents
-    const uint8_t msb = uint8_t((v >> 7) & 0x7F);
-    const uint8_t lsb = uint8_t(v & 0x7F);    syx.push_back(uint8_t(msb));
-    syx.push_back(uint8_t(lsb));
-  }
-
-  syx.push_back(uint8_t(0xF7));
-
-  qDebug()  << QString::number(      mts14BitToCents(mtsTable[0]) + currentGlobalOffsetCents_, 'f', 1) << QString::number( 100 + mts14BitToCents(mtsTable[ 1]) + currentGlobalOffsetCents_, 'f', 1) << QString::number( 200 + mts14BitToCents(mtsTable[ 2]) + currentGlobalOffsetCents_, 'f', 1)
-            << QString::number(300 + mts14BitToCents(mtsTable[3]) + currentGlobalOffsetCents_, 'f', 1) << QString::number( 400 + mts14BitToCents(mtsTable[ 4]) + currentGlobalOffsetCents_, 'f', 1) << QString::number( 500 + mts14BitToCents(mtsTable[ 5]) + currentGlobalOffsetCents_, 'f', 1)
-            << QString::number(600 + mts14BitToCents(mtsTable[6]) + currentGlobalOffsetCents_, 'f', 1) << QString::number( 700 + mts14BitToCents(mtsTable[ 7]) + currentGlobalOffsetCents_, 'f', 1) << QString::number( 800 + mts14BitToCents(mtsTable[ 8]) + currentGlobalOffsetCents_, 'f', 1)
-            << QString::number(900 + mts14BitToCents(mtsTable[9]) + currentGlobalOffsetCents_, 'f', 1) << QString::number(1000 + mts14BitToCents(mtsTable[10]) + currentGlobalOffsetCents_, 'f', 1) << QString::number(1100 + mts14BitToCents(mtsTable[11]) + currentGlobalOffsetCents_, 'f', 1);
-
-  out->sendSysEx(syx);
+  Intona::Tuning::sendTuningSysEx(
+    *out,
+    channelMask,
+    N,
+    fifthStep,
+    currentConfig_,
+    currentGlobalOffsetCents_);
 }
 
 
@@ -878,7 +721,8 @@ void MainWindow::handleIncomingNoteOn(uint8_t note, uint8_t velocity, uint32_t t
 
   for (uint8_t trackIndex = 0; trackIndex < 16; ++trackIndex)
     if (midiSettingTab_->isOutChnEnabled(trackIndex))
-      sendNoteOn(*out, trackIndex, note, velocity);
+      Intona::Tuning::sendNoteOn(
+        *out, trackIndex, note, velocity);
 }
 
 //----------------------------------------------------------------------------------------------------
@@ -895,7 +739,8 @@ void MainWindow::handleIncomingNoteOff(uint8_t note, uint8_t velocity, uint32_t 
 
   for (uint8_t trackIndex = 0; trackIndex < 16; ++trackIndex)
     if (midiSettingTab_->isOutChnEnabled(trackIndex))
-      sendNoteOff(*out, trackIndex, note, velocity);
+      Intona::Tuning::sendNoteOff(
+        *out, trackIndex, note, velocity);
 }
 
 //-------------------------------------------------------------------------------------------------
@@ -907,7 +752,8 @@ void MainWindow::process(uint8_t note, uint8_t velocity, uint32_t timeMs, IMidiO
   for (const auto& n : choice.notesToRetrigger)
     for (uint8_t trackIndex = 0; trackIndex < 16; ++trackIndex)
       if (midiSettingTab_->isOutChnEnabled(trackIndex))
-        sendNoteOff(*out, trackIndex, n.midiNote, 0);
+      Intona::Tuning::sendNoteOff(
+        *out, trackIndex, n.midiNote, 0);
 
   activeNotes_ = choice.resolvedNotes;
   pressedMask5_ = choice.pressedMask5;
@@ -929,7 +775,8 @@ void MainWindow::process(uint8_t note, uint8_t velocity, uint32_t timeMs, IMidiO
   for (const auto& n : choice.notesToRetrigger)
     for (uint8_t trackIndex = 0; trackIndex < 16; ++trackIndex)
       if (midiSettingTab_->isOutChnEnabled(trackIndex))
-        sendNoteOn(*out, trackIndex, n.midiNote, n.velocity);
+        Intona::Tuning::sendNoteOn(
+          *out, trackIndex, n.midiNote, n.velocity);
 }
 
 //-------------------------------------------------------------------------------------------------------------------
@@ -938,7 +785,8 @@ void MainWindow::handleIncomingChannelMsg(uint8_t code, uint8_t data1, uint8_t d
 {
   for (uint8_t trackIndex = 0; trackIndex < 16; ++trackIndex)
     if (midiSettingTab_->isOutChnEnabled(trackIndex))
-      sendChannelMsg(*out, trackIndex, code, data1, data2);
+      Intona::Tuning::sendChannelMessage(
+        *out, trackIndex, code, data1, data2);
 }
 
 //--------------------------------------
@@ -1287,7 +1135,8 @@ void MainWindow::setEDO(uint8_t idx)
   {
     for (int ch = 0; ch < 16; ++ch)
       if (midiSettingTab_->isOutChnEnabled(ch))
-        sendAllNotesOff(midiSettingTab_->MidiOut(), ch);
+        Intona::Tuning::sendAllNotesOff(
+          midiSettingTab_->MidiOut(), ch);
 
     activeNotes_.clear();
     pressedMask5_ = 0;

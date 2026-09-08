@@ -69,7 +69,8 @@ int main(int argc, char** argv)
   }
 
   MidiController midiController;
-  Intona::Tuning::TuningController tuningController;
+  Intona::Tuning::TuningController tuningController(
+    &midiController);
 
   const QVariantList userManualBlocks =
     NaadaLab::ManualDocumentParser::loadFromResource(
