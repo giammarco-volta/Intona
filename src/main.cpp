@@ -1,5 +1,6 @@
 #include <QApplication>
 #include <QCoreApplication>
+#include <QIcon>
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
@@ -58,6 +59,7 @@ static void enableKeepScreenOn()
 int main(int argc, char** argv)
 {
   QApplication app(argc, argv);
+  app.setWindowIcon(QIcon(QStringLiteral(":/icons/Intona.svg")));
   QQuickStyle::setStyle("Material");
 
   if (QCoreApplication::arguments().contains("--legacy-widgets"))

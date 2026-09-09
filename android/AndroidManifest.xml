@@ -8,7 +8,9 @@
         android:required="false" />
 
     <application
+        android:icon="@mipmap/ic_launcher"
         android:label="Intona"
+        android:roundIcon="@mipmap/ic_launcher_round"
         android:theme="@android:style/Theme.NoTitleBar">
 
         <activity

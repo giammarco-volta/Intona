@@ -96,6 +96,12 @@ else()
   )
 endif()
 
+if(WIN32)
+  target_sources(Intona PRIVATE
+    src/resources/windows/Intona.rc
+  )
+endif()
+
 qt_add_qml_module(Intona
   URI Intona
   VERSION 1.0
@@ -124,6 +130,11 @@ set_source_files_properties(
 set_source_files_properties(
   src/resources/images/keyboard.png
   PROPERTIES QT_RESOURCE_ALIAS "images/keyboard.png"
+)
+
+set_source_files_properties(
+  src/resources/icons/Intona.svg
+  PROPERTIES QT_RESOURCE_ALIAS "icons/Intona.svg"
 )
 
 set_source_files_properties(
@@ -157,6 +168,7 @@ qt_add_resources(Intona IntonaResources
   PREFIX "/"
   FILES
     src/resources/qdarkstyle/darkstyle.qss
+    src/resources/icons/Intona.svg
     src/resources/images/keyboard.png
     src/resources/manual/IntonaUserManual.pdf
     src/resources/manual/IntonaUserManual.html
