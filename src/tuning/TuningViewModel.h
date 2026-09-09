@@ -58,6 +58,9 @@ public:
   void setEdoIndex(int index);
   Q_INVOKABLE void selectTuningCenter(int value);
   Q_INVOKABLE void stepKeyPitch(int keyIndex, int direction);
+  Q_INVOKABLE void moveKeyPitchBySteps(
+    int keyIndex,
+    int stepCount);
   Q_INVOKABLE void captureCurrentPreset();
   Q_INVOKABLE void applyPreset(int index);
   Q_INVOKABLE void deletePreset(int index);

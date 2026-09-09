@@ -82,6 +82,11 @@ Rectangle {
                         keyIndex, direction)
                 }
 
+                onKeyMoveRequested: function(keyIndex, stepCount) {
+                    TuningController.moveKeyPitchBySteps(
+                        keyIndex, stepCount)
+                }
+
                 onCapturePresetRequested:
                     TuningController.captureCurrentPreset()
 

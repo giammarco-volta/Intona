@@ -140,6 +140,10 @@ public:
   Q_INVOKABLE void stepKeyPitch(
     int keyIndex,
     int direction);
+
+  Q_INVOKABLE void moveKeyPitchBySteps(
+    int keyIndex,
+    int stepCount);
   
   QVariantList circleEntries() const;
   QVariantList presetEntries() const;

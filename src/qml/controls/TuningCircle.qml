@@ -22,10 +22,13 @@ Item {
     property string keyDescription: ""
     property string chordDescription: ""
     property bool compactLayout: false
+    property bool noteDragActive: false
+    property int noteDragTargetStep: -1
 
     signal edoSelected(int index)
     signal tuningCenterSelected(int value)
     signal keyStepRequested(int keyIndex, int direction)
+    signal keyMoveRequested(int keyIndex, int stepCount)
     signal capturePresetRequested()
     signal adaptingToggled()
     signal aftertouchModeRequested()
@@ -77,6 +80,33 @@ Item {
     readonly property real centerX: width / 2
     readonly property real centerY: height / 2
 
+    function entryAtPitchStep(pitchStep) {
+        for (let index = 0; index < entries.length; ++index) {
+            if (entries[index].pitchStep === pitchStep)
+                return entries[index]
+        }
+
+        return null
+    }
+
+    function pitchStepAt(point) {
+        let angle = Math.atan2(
+                        point.y - centerY,
+                        point.x - centerX) + Math.PI / 2
+
+        if (angle < 0)
+            angle += 2 * Math.PI
+
+        return Math.round(
+                    angle * Math.max(1, edo)
+                    / (2 * Math.PI)) % Math.max(1, edo)
+    }
+
+    function resetNoteDrag() {
+        noteDragActive = false
+        noteDragTargetStep = -1
+    }
+
     Rectangle {
         x: root.centerX - root.outerRadius
         y: root.centerY - root.outerRadius
@@ -120,6 +150,8 @@ Item {
                     / Math.max(1, root.edo)
 
             Label {
+                id: noteLabel
+
                 x: root.centerX
                    + root.nameRadius * Math.cos(parent.angle)
                    - width / 2
@@ -132,6 +164,10 @@ Item {
 
                 color: parent.modelData.pressed
                        ? SharedUi.Theme.success
+                       : root.noteDragActive
+                         && root.noteDragTargetStep
+                            === parent.modelData.pitchStep
+                         ? SharedUi.Theme.link
                        : parent.modelData.selected
                          ? SharedUi.Theme.accent
                          : SharedUi.Theme.disabledText
@@ -145,7 +181,19 @@ Item {
                     parent.modelData.selected
                     || parent.modelData.pressed
 
+                scale: root.noteDragActive
+                       && root.noteDragTargetStep
+                          === parent.modelData.pitchStep
+                       ? 1.2
+                       : 1.0
+
+                Behavior on scale {
+                    NumberAnimation { duration: 80 }
+                }
+
                 MouseArea {
+                    id: noteArea
+
                     anchors.centerIn: parent
                     width: Math.max(
                                parent.width,
@@ -157,10 +205,76 @@ Item {
                     cursorShape: Qt.PointingHandCursor
                     preventStealing: true
 
-                    onClicked: {
-                        root.tuningCenterSelected(
-                            entryDelegate.modelData.value)
+                    property point pressPoint: Qt.point(0, 0)
+                    property int previousPitchStep: -1
+                    property int accumulatedSteps: 0
+
+                    onPressed: function(mouse) {
+                        pressPoint = mapToItem(
+                            root, mouse.x, mouse.y)
+                        previousPitchStep =
+                            entryDelegate.modelData.pitchStep
+                        accumulatedSteps = 0
+                        root.resetNoteDrag()
                     }
+
+                    onPositionChanged: function(mouse) {
+                        if (!pressed
+                            || !entryDelegate.modelData.selected)
+                            return
+
+                        const point = mapToItem(
+                            root, mouse.x, mouse.y)
+
+                        if (!root.noteDragActive) {
+                            const dx = point.x - pressPoint.x
+                            const dy = point.y - pressPoint.y
+                            const threshold = Math.max(
+                                8, Qt.styleHints.startDragDistance)
+
+                            if (Math.sqrt(dx * dx + dy * dy)
+                                < threshold)
+                                return
+
+                            root.noteDragActive = true
+                        }
+
+                        const pitchStep = root.pitchStepAt(point)
+                        let delta = pitchStep - previousPitchStep
+                        const halfEdo = root.edo / 2
+
+                        if (delta > halfEdo)
+                            delta -= root.edo
+                        else if (delta < -halfEdo)
+                            delta += root.edo
+
+                        accumulatedSteps += delta
+                        previousPitchStep = pitchStep
+                        root.noteDragTargetStep = pitchStep
+                    }
+
+                    onReleased: function(mouse) {
+                        if (!root.noteDragActive) {
+                            root.tuningCenterSelected(
+                                entryDelegate.modelData.value)
+                            return
+                        }
+
+                        const target = root.entryAtPitchStep(
+                            root.noteDragTargetStep)
+
+                        if (target
+                            && !target.selected
+                            && accumulatedSteps !== 0) {
+                            root.keyMoveRequested(
+                                entryDelegate.modelData.keyIndex,
+                                accumulatedSteps)
+                        }
+
+                        root.resetNoteDrag()
+                    }
+
+                    onCanceled: root.resetNoteDrag()
                 }
             }
 

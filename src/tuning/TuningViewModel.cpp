@@ -47,6 +47,19 @@ void TuningViewModel::stepKeyPitch(int keyIndex, int direction)
     Qt::QueuedConnection);
 }
 
+void TuningViewModel::moveKeyPitchBySteps(
+  int keyIndex,
+  int stepCount)
+{
+  QMetaObject::invokeMethod(
+    worker_,
+    [worker = worker_, keyIndex, stepCount]()
+    {
+      worker->moveKeyPitchBySteps(keyIndex, stepCount);
+    },
+    Qt::QueuedConnection);
+}
+
 void TuningViewModel::captureCurrentPreset()
 {
   QMetaObject::invokeMethod(

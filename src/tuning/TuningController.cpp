@@ -301,21 +301,39 @@ void TuningController::stepKeyPitch(
   int keyIndex,
   int direction)
 {
+  moveKeyPitchBySteps(keyIndex, direction);
+}
+
+void TuningController::moveKeyPitchBySteps(
+  int keyIndex,
+  int stepCount)
+{
+  if (stepCount == 0)
+    return;
+
   const NtetMapping& mapping =
     kNtetMappings[edoIndex_];
 
-  const auto targetValue =
-    steppedValueForKey(
+  Config candidate = currentConfig_;
+  const int direction = stepCount > 0 ? 1 : -1;
+
+  for (int step = 0; step < std::abs(stepCount); ++step)
+  {
+    const auto targetValue = steppedValueForKey(
       keyIndex,
       direction,
-      currentConfig_,
+      candidate,
       mapping,
       currentGlobalOffsetCents_);
 
-  if (!targetValue)
-    return;
+    if (!targetValue)
+      return;
 
-  currentConfig_.valueForKey[keyIndex] = *targetValue;
+    candidate.valueForKey[keyIndex] = *targetValue;
+  }
+
+  currentConfig_.valueForKey[keyIndex] =
+    candidate.valueForKey[keyIndex];
   currentPresetIndex_ = -1;
   rebuildConfigMask(currentConfig_);
 
@@ -356,12 +374,19 @@ QVariantList TuningController::circleEntries() const
     if (!value)
       continue;
 
-    const bool selected =
-      std::find(
+    const auto selectedKey = std::find(
         currentConfig_.valueForKey.begin(),
         currentConfig_.valueForKey.end(),
-        *value)
-      != currentConfig_.valueForKey.end();
+        *value);
+
+    const int keyIndex = selectedKey
+      != currentConfig_.valueForKey.end()
+        ? int(std::distance(
+            currentConfig_.valueForKey.begin(),
+            selectedKey))
+        : -1;
+
+    const bool selected = keyIndex >= 0;
 
     QVariantMap entry;
     entry.insert("pitchStep", pitchStep);
@@ -374,6 +399,7 @@ QVariantList TuningController::circleEntries() const
       1200.0 * double(pitchStep)
         / double(mapping.N));
     entry.insert("selected", selected);
+    entry.insert("keyIndex", keyIndex);
     entry.insert(
       "pressed",
       (pressedMask5_ & valueToPoolBit(*value)) != 0);
