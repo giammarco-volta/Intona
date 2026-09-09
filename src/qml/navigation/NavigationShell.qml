@@ -38,7 +38,7 @@ Item {
         {
             section: "surface",
             name: qsTr("Tuning Surface"),
-            icon: "curves"
+            icon: "tuning"
         },
         {
             section: "midi",

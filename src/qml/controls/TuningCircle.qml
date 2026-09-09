@@ -21,6 +21,7 @@ Item {
     property bool aftertouchEnabled: true
     property string keyDescription: ""
     property string chordDescription: ""
+    property bool compactLayout: false
 
     signal edoSelected(int index)
     signal tuningCenterSelected(int value)
@@ -51,6 +52,27 @@ Item {
                 46,
                 2 * Math.PI * nameRadius
                     / Math.max(1, edo) * 0.82))
+
+    readonly property real sideLabelsX:
+        compactLayout
+        ? 6
+        : Math.max(
+              12,
+              centerX - outerRadius - diameter * 0.10)
+
+    readonly property real edoVerticalInset:
+        compactLayout
+        ? Math.max(24, diameter / 18)
+        : Math.max(36, diameter / 14)
+
+    readonly property real optionTouchHeight:
+        Math.max(40, diameter / 15)
+
+    readonly property real statusFontSize:
+        Math.max(10, diameter / 40)
+
+    readonly property real statusLineHeight:
+        statusFontSize + 7
 
     readonly property real centerX: width / 2
     readonly property real centerY: height / 2
@@ -235,7 +257,7 @@ Item {
 
         x: root.centerX - width / 2
         y: root.centerY - root.centsRadius
-           + Math.max(36, root.diameter / 14)
+           + root.edoVerticalInset
 
         width: edoRow.implicitWidth
         height: edoRow.implicitHeight
@@ -272,39 +294,68 @@ Item {
     }
 
     Column {
-        x: root.centerX - root.outerRadius + 14
+        x: root.sideLabelsX
         y: root.centerY - root.nameRadius
-        spacing: 3
+        spacing: 0
 
-        Label {
-            text: root.adaptingEnabled
-                  ? qsTr("✓ RT Adapting")
-                  : qsTr("✕ RT Adapting")
-            color: root.adaptingEnabled
-                   ? SharedUi.Theme.success
-                   : SharedUi.Theme.disabledText
-            font.bold: true
-            font.pixelSize: Math.max(11, root.diameter / 38)
+        Item {
+            width: Math.max(
+                       aftertouchLabel.implicitWidth + 20,
+                       root.diameter * 0.32)
+            height: root.optionTouchHeight
+
+            Label {
+                id: aftertouchLabel
+
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+                anchors.verticalCenterOffset: -parent.height / 2
+
+                text: root.aftertouchText
+                color: root.aftertouchEnabled
+                       ? SharedUi.Theme.success
+                       : SharedUi.Theme.disabledText
+                font.bold: true
+                font.pixelSize: Math.max(11, root.diameter / 38)
+            }
 
             MouseArea {
                 anchors.fill: parent
+                anchors.topMargin: -parent.height / 2
+                anchors.bottomMargin: parent.height / 2
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.adaptingToggled()
+                preventStealing: true
+                onClicked: root.aftertouchModeRequested()
             }
         }
 
-        Label {
-            text: root.aftertouchText
-            color: root.aftertouchEnabled
-                   ? SharedUi.Theme.success
-                   : SharedUi.Theme.disabledText
-            font.bold: true
-            font.pixelSize: Math.max(11, root.diameter / 38)
+        Item {
+            width: Math.max(
+                       adaptingLabel.implicitWidth + 20,
+                       root.diameter * 0.32)
+            height: root.optionTouchHeight
+
+            Label {
+                id: adaptingLabel
+
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.verticalCenter
+
+                text: root.adaptingEnabled
+                      ? qsTr("✓ RT Adapting")
+                      : qsTr("✕ RT Adapting")
+                color: root.adaptingEnabled
+                       ? SharedUi.Theme.success
+                       : SharedUi.Theme.disabledText
+                font.bold: true
+                font.pixelSize: Math.max(11, root.diameter / 38)
+            }
 
             MouseArea {
                 anchors.fill: parent
                 cursorShape: Qt.PointingHandCursor
-                onClicked: root.aftertouchModeRequested()
+                preventStealing: true
+                onClicked: root.adaptingToggled()
             }
         }
     }
@@ -328,31 +379,38 @@ Item {
     }
 
     Column {
-        x: root.centerX - root.outerRadius + 14
+        x: root.sideLabelsX
         y: root.centerY + root.nameRadius
-           - implicitHeight
+           - height
+        width: Math.max(180, root.diameter * 0.36)
+        height: root.statusLineHeight * 3 + spacing * 2
         spacing: 3
 
         Label {
-            visible: root.tuningCenterName.length > 0
-            text: qsTr("Tuning Center = %1")
-                      .arg(root.tuningCenterName)
+            width: parent.width
+            height: root.statusLineHeight
+            text: root.tuningCenterName.length > 0
+                  ? qsTr("Tuning Center = %1")
+                        .arg(root.tuningCenterName)
+                  : ""
             color: SharedUi.Theme.accent
-            font.pixelSize: Math.max(10, root.diameter / 40)
+            font.pixelSize: root.statusFontSize
         }
 
         Label {
-            visible: root.keyDescription.length > 0
+            width: parent.width
+            height: root.statusLineHeight
             text: root.keyDescription
             color: SharedUi.Theme.link
-            font.pixelSize: Math.max(10, root.diameter / 40)
+            font.pixelSize: root.statusFontSize
         }
 
         Label {
-            visible: root.chordDescription.length > 0
+            width: parent.width
+            height: root.statusLineHeight
             text: root.chordDescription
             color: SharedUi.Theme.error
-            font.pixelSize: Math.max(10, root.diameter / 40)
+            font.pixelSize: root.statusFontSize
         }
     }
 

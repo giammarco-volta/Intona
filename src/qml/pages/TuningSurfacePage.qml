@@ -43,6 +43,8 @@ Rectangle {
                 anchors.fill: parent
                 anchors.margins: 4
 
+                compactLayout: root.mobileLayout
+
                 entries: TuningController.circleEntries
                 edo: TuningController.edo
                 edoIndex: TuningController.edoIndex
