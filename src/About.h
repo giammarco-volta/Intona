@@ -97,7 +97,7 @@ inline constexpr char about[] = R"(
                           </p>
 
                           <ul>
-                            <li>MorphMaster</li>
+                            <li>Morphora</li>
                             <li>Intona</li>
                             <li>RelaTune</li>
                           </ul>
