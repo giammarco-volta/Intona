@@ -7,9 +7,6 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 find_package(Qt6 REQUIRED COMPONENTS
   Core
   Gui
-  Widgets
-  Pdf
-  PdfWidgets
   Svg
   Qml
   Quick
@@ -33,10 +30,6 @@ endif()
 
 set(INTONA_SOURCES
   src/main.cpp
-  src/MainWindow.h
-  src/MainWindow.cpp
-  src/StyleUtils.h
-  src/StyleUtils.cpp
   src/Config.hpp
   src/CentsUtilities.hpp
   src/StringUtilities.hpp
@@ -46,6 +39,8 @@ set(INTONA_SOURCES
   src/ChordRecognizer.cpp
   src/TuningCenterFinder.h
   src/TuningCenterFinder.cpp
+  src/About.h
+  
   src/tuning/TuningTypes.h
   src/tuning/TuningAlgorithms.h
   src/tuning/TuningAlgorithms.cpp
@@ -55,30 +50,12 @@ set(INTONA_SOURCES
   src/tuning/TuningViewModel.cpp
   src/tuning/TuningMidiOutput.h
   src/tuning/TuningMidiOutput.cpp
-  src/About.h
-
-  external/Common/src/ui/widgets/MidiChannelSelector.h
-  external/Common/src/ui/widgets/MidiChannelSelector.cpp
-  external/Common/src/ui/widgets/ManualWidget.h
-  external/Common/src/ui/widgets/ManualWidget.cpp
 
   src/midi/IntonaMidiConfiguration.h
   src/midi/MidiController.h
   src/midi/MidiController.cpp
   src/midi/MidiViewModel.h
   src/midi/MidiViewModel.cpp
-
-  src/ui/tabs/MidiSettingsTab.h
-  src/ui/tabs/MidiSettingsTab.cpp
-
-  src/ui/tabs/SurfaceTab.h
-  src/ui/tabs/SurfaceTab.cpp
-
-  src/ui/widgets/NtetCircleWidget.h
-  src/ui/widgets/NtetCircleWidget.cpp
-
-  src/ui/widgets/ConfigPresetListWidget.h
-  src/ui/widgets/ConfigPresetListWidget.cpp
 )
 
 if(ANDROID)
@@ -113,18 +90,12 @@ qt_add_qml_module(Intona
     src/qml/Main.qml
     src/qml/navigation/NavigationShell.qml
     src/qml/controls/MidiChannelGrid.qml
-	 src/qml/controls/TuningCircle.qml
+	src/qml/controls/TuningCircle.qml
     src/qml/controls/TuningKeyboard.qml
-    src/qml/pages/PlaceholderPage.qml
     src/qml/pages/MidiSetupPage.qml
     src/qml/pages/TuningSurfacePage.qml
     src/qml/pages/UserManualPage.qml
     src/qml/pages/AboutPage.qml
-)
-
-set_source_files_properties(
-  src/resources/qdarkstyle/darkstyle.qss
-  PROPERTIES QT_RESOURCE_ALIAS "qdarkstyle/darkstyle.qss"
 )
 
 set_source_files_properties(
@@ -135,11 +106,6 @@ set_source_files_properties(
 set_source_files_properties(
   src/resources/icons/Intona.svg
   PROPERTIES QT_RESOURCE_ALIAS "icons/Intona.svg"
-)
-
-set_source_files_properties(
-  src/resources/manual/IntonaUserManual.pdf
-  PROPERTIES QT_RESOURCE_ALIAS "manual/IntonaUserManual.pdf"
 )
 
 set_source_files_properties(
@@ -167,10 +133,8 @@ endforeach()
 qt_add_resources(Intona IntonaResources
   PREFIX "/"
   FILES
-    src/resources/qdarkstyle/darkstyle.qss
     src/resources/icons/Intona.svg
     src/resources/images/keyboard.png
-    src/resources/manual/IntonaUserManual.pdf
     src/resources/manual/IntonaUserManual.html
     ${MANUAL_IMAGE_FILES}
 )
@@ -179,17 +143,10 @@ target_link_libraries(Intona PRIVATE
   NaadaLab::Midi
   NaadaLab::Ui
   NaadaLab::Manual
-  Qt6::Widgets
-  Qt6::Pdf
-  Qt6::PdfWidgets
   Qt6::Svg
   Qt6::Qml
   Qt6::Quick
   Qt6::QuickControls2
-)
-
-target_include_directories(Intona PRIVATE
-  "${CMAKE_CURRENT_SOURCE_DIR}/external/Common/src/ui/widgets"
 )
 
 if(ANDROID)

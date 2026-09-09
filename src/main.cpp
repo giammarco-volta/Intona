@@ -1,4 +1,4 @@
-#include <QApplication>
+#include <QGuiApplication>
 #include <QCoreApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
@@ -6,8 +6,6 @@
 #include <QQuickStyle>
 #include <QThread>
 
-#include "MainWindow.h"
-#include "StyleUtils.h"
 #include "ManualDocumentParser.h"
 #include "About.h"
 #include "midi/MidiController.h"
@@ -58,20 +56,9 @@ static void enableKeepScreenOn()
 
 int main(int argc, char** argv)
 {
-  QApplication app(argc, argv);
+  QGuiApplication app(argc, argv);
   app.setWindowIcon(QIcon(QStringLiteral(":/icons/Intona.svg")));
   QQuickStyle::setStyle("Material");
-
-  if (QCoreApplication::arguments().contains("--legacy-widgets"))
-  {
-    app.setStyle("Fusion");
-    app.setStyleSheet(loadStyleSheet(":/qdarkstyle/darkstyle.qss"));
-
-    MainWindow window;
-    window.show();
-
-    return app.exec();
-  }
 
   QThread midiThread;
   midiThread.setObjectName(QStringLiteral("IntonaMidiThread"));

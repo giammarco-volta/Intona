@@ -1,8 +1,0 @@
-<RCC>
-  <qresource prefix="/qdarkstyle">
-    <file alias="darkstyle.qss">resources/qdarkstyle/darkstyle.qss</file>
-  </qresource>
-  <qresource prefix="/images">
-    <file>resources/keyboard.jpg</file>
-  </qresource>
-</RCC>
