@@ -9,6 +9,18 @@
 class IMidiOut;
 class MidiIn_MonoInterpreter;
 
+struct MidiUiSnapshot
+{
+  QStringList midiInPorts;
+  QStringList midiOutPorts;
+  QString midiInPort;
+  QString midiOutPort;
+  int midiInChannel = 1;
+  quint32 midiOutChannelMask = 0;
+  QString midiInStatus;
+  QString midiOutStatus;
+};
+
 class MidiController final : public QObject
 {
   Q_OBJECT
@@ -52,6 +64,9 @@ public:
   explicit MidiController(QObject* parent = nullptr);
   ~MidiController() override;
 
+  Q_INVOKABLE void start();
+  Q_INVOKABLE void stop();
+
   QStringList midiInPorts() const;
   QStringList midiOutPorts() const;
 
@@ -75,6 +90,7 @@ public:
   Q_INVOKABLE void setMidiOutChannelEnabled(int channel, bool enabled);
 
   IMidiOut* midiOut() const noexcept;
+  MidiUiSnapshot uiSnapshot() const;
 
 signals:
   void midiInPortsChanged();

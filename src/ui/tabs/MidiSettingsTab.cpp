@@ -265,7 +265,7 @@ void MidiSettingsTab::connectMidiIn(uint8_t deviceIndex)
       }
       else
       {
-        const uint8_t ch = inChannelSpin_->value();
+        const uint8_t ch = inChannelSpin_->value() - 1;
         const uint8_t code = ev.message();
         const uint8_t data1 = ev.data1;
         const uint8_t data2 = ev.data2;

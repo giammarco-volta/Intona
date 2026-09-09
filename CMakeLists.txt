@@ -51,6 +51,8 @@ set(INTONA_SOURCES
   src/tuning/TuningAlgorithms.cpp
   src/tuning/TuningController.h
   src/tuning/TuningController.cpp
+  src/tuning/TuningViewModel.h
+  src/tuning/TuningViewModel.cpp
   src/tuning/TuningMidiOutput.h
   src/tuning/TuningMidiOutput.cpp
   src/About.h
@@ -63,6 +65,8 @@ set(INTONA_SOURCES
   src/midi/IntonaMidiConfiguration.h
   src/midi/MidiController.h
   src/midi/MidiController.cpp
+  src/midi/MidiViewModel.h
+  src/midi/MidiViewModel.cpp
 
   src/ui/tabs/MidiSettingsTab.h
   src/ui/tabs/MidiSettingsTab.cpp

@@ -55,6 +55,17 @@ Rectangle {
                 keyNames: TuningController.keyNames
                 canRaiseKeys: TuningController.canRaiseKeys
                 canLowerKeys: TuningController.canLowerKeys
+                pressedKeys: TuningController.pressedKeys
+                adaptingEnabled:
+                    TuningController.adaptingEnabled
+                aftertouchText:
+                    TuningController.aftertouchText
+                aftertouchEnabled:
+                    TuningController.aftertouchEnabled
+                keyDescription:
+                    TuningController.keyDescription
+                chordDescription:
+                    TuningController.chordDescription
 
                 onEdoSelected: function(index) {
                     TuningController.edoIndex = index
@@ -71,6 +82,13 @@ Rectangle {
 
                 onCapturePresetRequested:
                     TuningController.captureCurrentPreset()
+
+                onAdaptingToggled:
+                    TuningController.adaptingEnabled =
+                        !TuningController.adaptingEnabled
+
+                onAftertouchModeRequested:
+                    TuningController.cycleAftertouchMode()
             }
         }
 

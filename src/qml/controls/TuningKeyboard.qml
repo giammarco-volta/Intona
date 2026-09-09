@@ -9,6 +9,7 @@ Item {
     property var keyNames: []
     property var canRaiseKeys: []
     property var canLowerKeys: []
+    property var pressedKeys: []
 
     signal stepRequested(int keyIndex, int direction)
 
@@ -70,7 +71,10 @@ Item {
 
             text: root.keyNames.length > modelData.key
                   ? root.keyNames[modelData.key] : ""
-            color: SharedUi.Theme.background
+            color: root.pressedKeys.length > modelData.key
+                   && root.pressedKeys[modelData.key]
+                   ? SharedUi.Theme.success
+                   : SharedUi.Theme.background
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             font.bold: true
@@ -93,7 +97,10 @@ Item {
 
             text: root.keyNames.length > modelData.key
                   ? root.keyNames[modelData.key] : ""
-            color: "white"
+            color: root.pressedKeys.length > modelData.key
+                   && root.pressedKeys[modelData.key]
+                   ? SharedUi.Theme.success
+                   : SharedUi.Theme.text
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             font.bold: true

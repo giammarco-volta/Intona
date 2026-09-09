@@ -15,11 +15,19 @@ Item {
     property var keyNames: []
     property var canRaiseKeys: []
     property var canLowerKeys: []
+    property var pressedKeys: []
+    property bool adaptingEnabled: true
+    property string aftertouchText: ""
+    property bool aftertouchEnabled: true
+    property string keyDescription: ""
+    property string chordDescription: ""
 
     signal edoSelected(int index)
     signal tuningCenterSelected(int value)
     signal keyStepRequested(int keyIndex, int direction)
     signal capturePresetRequested()
+    signal adaptingToggled()
+    signal aftertouchModeRequested()
 
     readonly property real diameter:
         Math.max(0, Math.min(width, height) - 20)
@@ -100,16 +108,20 @@ Item {
 
                 text: parent.modelData.name
 
-                color: parent.modelData.selected
-                       ? SharedUi.Theme.accent
-                       : SharedUi.Theme.disabledText
+                color: parent.modelData.pressed
+                       ? SharedUi.Theme.success
+                       : parent.modelData.selected
+                         ? SharedUi.Theme.accent
+                         : SharedUi.Theme.disabledText
 
                 font.pixelSize:
                     Math.max(
                         9,
                         Math.min(15, root.diameter / 34))
 
-                font.bold: parent.modelData.selected
+                font.bold:
+                    parent.modelData.selected
+                    || parent.modelData.pressed
 
                 MouseArea {
                     anchors.centerIn: parent
@@ -153,6 +165,44 @@ Item {
                 color: SharedUi.Theme.accent
             }
 
+            Rectangle {
+                readonly property real dotRadius:
+                    root.outerRadius + 14
+
+                x: root.centerX
+                   + dotRadius * Math.cos(parent.angle)
+                   - width / 2
+
+                y: root.centerY
+                   + dotRadius * Math.sin(parent.angle)
+                   - height / 2
+
+                width: Math.max(5, root.diameter / 105)
+                height: width
+                radius: width / 2
+                visible: parent.modelData.keyTonic
+                color: SharedUi.Theme.link
+            }
+
+            Rectangle {
+                readonly property real dotRadius:
+                    root.outerRadius + 21
+
+                x: root.centerX
+                   + dotRadius * Math.cos(parent.angle)
+                   - width / 2
+
+                y: root.centerY
+                   + dotRadius * Math.sin(parent.angle)
+                   - height / 2
+
+                width: Math.max(4, root.diameter / 125)
+                height: width
+                radius: width / 2
+                visible: parent.modelData.chordRoot
+                color: SharedUi.Theme.error
+            }
+
             Label {
                 x: root.centerX
                    + root.centsRadius * Math.cos(parent.angle)
@@ -164,9 +214,11 @@ Item {
 
                 text: Number(parent.modelData.cents).toFixed(1)
 
-                color: parent.modelData.selected
-                       ? SharedUi.Theme.accent
-                       : SharedUi.Theme.disabledText
+                color: parent.modelData.pressed
+                       ? SharedUi.Theme.success
+                       : parent.modelData.selected
+                         ? SharedUi.Theme.accent
+                         : SharedUi.Theme.disabledText
 
                 opacity: parent.modelData.selected ? 0.9 : 0.65
 
@@ -219,18 +271,42 @@ Item {
         }
     }
 
-    Label {
-        x: root.centerX - width / 2
-        y: root.centerY - height / 2
+    Column {
+        x: root.centerX - root.outerRadius + 14
+        y: root.centerY - root.nameRadius
+        spacing: 3
 
-        text: root.tuningCenterName.length > 0
-              ? qsTr("Tuning center: %1")
-                    .arg(root.tuningCenterName)
-              : qsTr("Custom tuning")
+        Label {
+            text: root.adaptingEnabled
+                  ? qsTr("✓ RT Adapting")
+                  : qsTr("✕ RT Adapting")
+            color: root.adaptingEnabled
+                   ? SharedUi.Theme.success
+                   : SharedUi.Theme.disabledText
+            font.bold: true
+            font.pixelSize: Math.max(11, root.diameter / 38)
 
-        color: SharedUi.Theme.secondaryText
-        font.pixelSize:
-            Math.max(11, root.diameter / 35)
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.adaptingToggled()
+            }
+        }
+
+        Label {
+            text: root.aftertouchText
+            color: root.aftertouchEnabled
+                   ? SharedUi.Theme.success
+                   : SharedUi.Theme.disabledText
+            font.bold: true
+            font.pixelSize: Math.max(11, root.diameter / 38)
+
+            MouseArea {
+                anchors.fill: parent
+                cursorShape: Qt.PointingHandCursor
+                onClicked: root.aftertouchModeRequested()
+            }
+        }
     }
 
     TuningKeyboard {
@@ -244,9 +320,39 @@ Item {
         keyNames: root.keyNames
         canRaiseKeys: root.canRaiseKeys
         canLowerKeys: root.canLowerKeys
+        pressedKeys: root.pressedKeys
 
         onStepRequested: function(keyIndex, direction) {
             root.keyStepRequested(keyIndex, direction)
+        }
+    }
+
+    Column {
+        x: root.centerX - root.outerRadius + 14
+        y: root.centerY + root.nameRadius
+           - implicitHeight
+        spacing: 3
+
+        Label {
+            visible: root.tuningCenterName.length > 0
+            text: qsTr("Tuning Center = %1")
+                      .arg(root.tuningCenterName)
+            color: SharedUi.Theme.accent
+            font.pixelSize: Math.max(10, root.diameter / 40)
+        }
+
+        Label {
+            visible: root.keyDescription.length > 0
+            text: root.keyDescription
+            color: SharedUi.Theme.link
+            font.pixelSize: Math.max(10, root.diameter / 40)
+        }
+
+        Label {
+            visible: root.chordDescription.length > 0
+            text: root.chordDescription
+            color: SharedUi.Theme.error
+            font.pixelSize: Math.max(10, root.diameter / 40)
         }
     }
 

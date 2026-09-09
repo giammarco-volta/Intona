@@ -12,11 +12,18 @@
 #include <algorithm>
 
 MidiController::MidiController(QObject* parent)
-  : QObject(parent),
-    midiIn_(createMidiIn(makeIntonaMidiInConfiguration())),
-    midiOut_(createMidiOut())
+  : QObject(parent)
 {
   loadSettings();
+}
+
+void MidiController::start()
+{
+  if (!midiIn_)
+    midiIn_ = createMidiIn(makeIntonaMidiInConfiguration());
+
+  if (!midiOut_)
+    midiOut_ = createMidiOut();
 
   if (midiIn_)
   {
@@ -31,6 +38,11 @@ MidiController::MidiController(QObject* parent)
 }
 
 MidiController::~MidiController()
+{
+  stop();
+}
+
+void MidiController::stop()
 {
   if (midiIn_)
   {
@@ -316,6 +328,19 @@ void MidiController::setMidiOutChannelEnabled(
 IMidiOut* MidiController::midiOut() const noexcept
 {
   return midiOut_.get();
+}
+
+MidiUiSnapshot MidiController::uiSnapshot() const
+{
+  return {
+    midiInPorts_,
+    midiOutPorts_,
+    midiInPort_,
+    midiOutPort_,
+    midiInChannel_,
+    midiOutChannelMask_,
+    midiInStatus_,
+    midiOutStatus_};
 }
 
 void MidiController::loadSettings()

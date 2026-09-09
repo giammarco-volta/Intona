@@ -3,13 +3,16 @@
 #include <QQmlApplicationEngine>
 #include <QQmlContext>
 #include <QQuickStyle>
+#include <QThread>
 
 #include "MainWindow.h"
 #include "StyleUtils.h"
 #include "ManualDocumentParser.h"
 #include "About.h"
 #include "midi/MidiController.h"
+#include "midi/MidiViewModel.h"
 #include "tuning/TuningController.h"
+#include "tuning/TuningViewModel.h"
 
 #ifdef Q_OS_ANDROID
 #include <QDebug>
@@ -68,9 +71,51 @@ int main(int argc, char** argv)
     return app.exec();
   }
 
-  MidiController midiController;
-  Intona::Tuning::TuningController tuningController(
-    &midiController);
+  QThread midiThread;
+  midiThread.setObjectName(QStringLiteral("IntonaMidiThread"));
+
+  auto* midiWorker = new MidiController;
+  auto* tuningWorker =
+    new Intona::Tuning::TuningController(midiWorker);
+
+  MidiViewModel midiViewModel(midiWorker);
+  Intona::Tuning::TuningViewModel tuningViewModel(
+    tuningWorker);
+
+  midiWorker->moveToThread(&midiThread);
+  tuningWorker->moveToThread(&midiThread);
+
+  QObject::connect(
+    &midiThread,
+    &QThread::started,
+    midiWorker,
+    &MidiController::start);
+
+  QObject::connect(
+    &midiThread,
+    &QThread::started,
+    &midiViewModel,
+    &MidiViewModel::requestInitialRefresh);
+
+  QObject::connect(
+    &midiThread,
+    &QThread::started,
+    &tuningViewModel,
+    &Intona::Tuning::TuningViewModel::requestInitialRefresh);
+
+  QObject::connect(
+    &midiThread,
+    &QThread::finished,
+    midiWorker,
+    &QObject::deleteLater);
+
+  QObject::connect(
+    &midiThread,
+    &QThread::finished,
+    tuningWorker,
+    &QObject::deleteLater);
+
+  midiThread.start(QThread::TimeCriticalPriority);
 
   const QVariantList userManualBlocks =
     NaadaLab::ManualDocumentParser::loadFromResource(
@@ -101,9 +146,9 @@ int main(int argc, char** argv)
   constexpr bool debugBuild = true;
 #endif
 
-  engine.rootContext()->setContextProperty("MidiController", &midiController);
+  engine.rootContext()->setContextProperty("MidiController", &midiViewModel);
 
-  engine.rootContext()->setContextProperty("TuningController", &tuningController);
+  engine.rootContext()->setContextProperty("TuningController", &tuningViewModel);
 
   engine.rootContext()->setContextProperty("DebugBuild", debugBuild);
 
@@ -116,5 +161,15 @@ int main(int argc, char** argv)
     });
 #endif
 
-  return app.exec();
+  const int result = app.exec();
+
+  QMetaObject::invokeMethod(
+    midiWorker,
+    &MidiController::stop,
+    Qt::BlockingQueuedConnection);
+
+  midiThread.quit();
+  midiThread.wait();
+
+  return result;
 }
