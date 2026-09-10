@@ -160,250 +160,338 @@
 
 <body>
 
-  <img src="images/naadalab.svg">
+  <img src="images/naadalab.svg" alt="NaadaLab">
 
   <main class="page">
     <h1>Intona User Manual</h1>
 
     <p><strong>Draft version.</strong> This document is a first working draft and will be revised as the behaviour of Intona is documented in more detail.</p>
 
-	<section id="before-you-start-midi-flow">
-  <h2>Before You Start: How <strong>Intona</strong> Controls the MIDI Flow</h2>
+	<section id="introduction">
+	  <h1>Introduction</h1>
 
-  <p>
-    <strong>Intona</strong> is not intended to work only as a device that sends tuning SysEx
-    messages in the background.
-  </p>
+	  <p>
+		<strong>Intona</strong> is a real-time MIDI tuning application designed to
+		retune musical performances according to alternative tuning systems and
+		adaptive intonation rules.
+	  </p>
 
-  <p>
-    For real-time adaptive tuning to work correctly, <strong>Intona</strong> must control the
-    order in which tuning changes and note events reach the sound generator.
-  </p>
+	  <p>
+		It is intended for musicians, composers and researchers interested in
+		microtonality, equal divisions of the octave, adaptive tuning and
+		non-standard pitch organisation.
+	  </p>
 
-  <p>
-    This is an important point. When <strong>Intona</strong> receives a note, it may need to
-    analyse the musical context, select or update the current tuning, and send a
-    MIDI tuning SysEx message before the note is actually played by the
-    receiving instrument.
-  </p>
+	  <p>
+		<strong>Intona</strong> can use a static tuning selected by the user or
+		adapt the tuning in real time by analysing the musical context. Its purpose
+		is to make these tuning processes directly playable and controllable during
+		a performance.
+	  </p>
+	</section>
 
-  <p>The correct order is therefore:</p>
+	<nav class="toc" aria-label="Table of contents">
+	  <strong>Contents</strong>
+	  <ol>
+		<li><a href="#before-you-start">Before You Start</a></li>
+		<li><a href="#midi-settings">MIDI Setup</a></li>
+		<li><a href="#tuning-fundamentals">Tuning Fundamentals</a></li>
+		<li><a href="#tuning-surface">Tuning Surface</a></li>
+	  </ol>
+	</nav>
 
-  <pre><code>Note received by <strong>Intona</strong>
-→ musical context is analysed
-→ tuning is updated if needed
-→ MIDI tuning SysEx is sent
-→ Note On is sent to the tuned output channels</code></pre>
+	<section id="before-you-start">
+	  <h1>1. Before You Start</h1>
 
-  <p>
-    If the receiving instrument plays the note directly before <strong>Intona</strong> has sent
-    the new tuning information, the note may start with the previous tuning.
-    This can produce wrong intonation, especially when the tuning changes in
-    response to the note that has just been played.
-  </p>
+	  <h2>Required MIDI Configuration</h2>
 
-  <p>
-    For this reason, the MIDI input used by <strong>Intona</strong> should be treated as a
-    <strong>control track</strong> or <strong>control channel</strong>. It should
-    send MIDI data to <strong>Intona</strong>, but it should not directly trigger the sound
-    generator.
-  </p>
+	  <p>
+		<strong>Intona</strong> is a real-time MIDI processor placed between a MIDI
+		performance source and a sound generator. Before using it, configure the
+		sending and receiving devices so that all notes intended for retuning pass
+		through <strong>Intona</strong> before reaching the sound generator.
+	  </p>
 
-  <p>
-    On a hardware instrument, this usually means that the control track should
-    be set to <strong>Local Off</strong>, or otherwise configured so that it does
-    not produce sound directly.
-  </p>
+	  <p>You need:</p>
 
-  <p>
-    The final sounding notes should be generated only from the MIDI data sent by
-    <strong>Intona</strong>.
-  </p>
+	  <ul>
+		<li>
+		  one dedicated <strong>control track</strong>, transmitting on one MIDI
+		  channel;
+		</li>
+		<li>
+		  a MIDI input port through which <strong>Intona</strong> receives that
+		  track;
+		</li>
+		<li>
+		  a MIDI output port connected to the receiving instrument or application;
+		</li>
+		<li>
+		  one or more output channels configured to produce the final sound;
+		</li>
+		<li>
+		  a receiving instrument that supports the MIDI tuning messages used by
+		  <strong>Intona</strong>.
+		</li>
+	  </ul>
 
-  <h3>Control Track and Tuned Output Channels</h3>
+	  <h2>The Control Track</h2>
 
-  <p>
-    <strong>Intona</strong> receives notes from one input channel. This channel is the
-    <strong>control channel</strong>.
-  </p>
+	  <p>
+		The control track is the single performance source analysed by
+		<strong>Intona</strong>. It may come from a keyboard, workstation,
+		sequencer, DAW track or another MIDI application.
+	  </p>
 
-  <p>
-    The control channel is used by <strong>Intona</strong> to understand what is being played and
-    to decide whether the tuning has to be changed.
-  </p>
+	  <p>
+		Configure this track to transmit on the channel selected as
+		<strong>Input channel</strong> in <strong>Intona</strong>.
+		<strong>Intona</strong> ignores note data received on the other input
+		channels.
+	  </p>
 
-  <p>
-    <strong>Intona</strong> then sends the resulting notes to the selected
-    <strong>Tuned Output Channels</strong>.
-  </p>
+	  <p>
+		Only one control track should feed the selected input channel. If several
+		independent tracks transmit through the same port and channel,
+		<strong>Intona</strong> cannot distinguish them: their notes become part of
+		the same musical context and are analysed as one performance.
+	  </p>
 
-  <p>The Tuned Output Channels have two roles:</p>
+	  <h2>Local Off and Direct Monitoring</h2>
 
-  <ol>
-    <li>
-      they receive the MIDI tuning SysEx messages generated by <strong>Intona</strong>;
-    </li>
-    <li>
-      they receive the Note On and Note Off events replicated by <strong>Intona</strong>.
-    </li>
-  </ol>
+	  <p>
+		The control track must send MIDI data to <strong>Intona</strong> without
+		producing the final sound directly.
+	  </p>
 
-  <p>
-    This ensures that the channels which play the final sound are also the
-    channels affected by the current tuning.
-  </p>
+	  <p>
+		When the sending keyboard and the receiving sound generator are part of
+		the same instrument, set the control track to <strong>Local Off</strong>,
+		or use the equivalent MIDI-routing option provided by the instrument.
+		The keyboard performance will then follow this path:
+	  </p>
 
-  <h3>Why Sending Only Tuning SysEx Is Not Enough</h3>
+	  <pre><code>Control track
+	&rarr; Intona
+	&rarr; tuned output channels
+	&rarr; sound generator</code></pre>
 
-  <p>
-    In some simple situations, it may seem sufficient to let the instrument play
-    normally and use <strong>Intona</strong> only to send tuning SysEx messages.
-  </p>
+	  <p>
+		The MIDI tuning message generated by <strong>Intona</strong> contains a
+		channel mask identifying the selected output channels. In the intended
+		configuration, these are the channels of the parts that produce the final
+		sound; the control track is not itself one of those sounding parts.
+	  </p>
 
-  <p>
-    This is not reliable for real-time adaptive tuning.
-  </p>
+	  <p>
+		If the control track also plays the instrument locally, its notes bypass
+		the processing performed by <strong>Intona</strong>. They may therefore be
+		heard with the instrument's ordinary tuning, while the notes retransmitted
+		by <strong>Intona</strong> are heard on the selected, retuned output
+		channels. The result may include doubled notes, conflicting intonations and
+		an incorrect response to real-time tuning changes.
+	  </p>
 
-  <p>
-    The reason is timing. If the instrument receives and plays a note before
-    <strong>Intona</strong> has sent the tuning update, that note may start with the wrong
-    tuning. Even if the tuning is corrected immediately afterwards, the attack
-    of the note may already be wrong, or different parts may respond
-    inconsistently.
-  </p>
+	  <p>
+		Directly played notes may also reach the sound generator before
+		<strong>Intona</strong> has analysed them and sent the required tuning
+		update.
+	  </p>
 
-  <p>
-    For accurate real-time behaviour, <strong>Intona</strong> must receive the note first, send
-    the required tuning information, and only then send the note to the tuned
-    output channels.
-  </p>
+	  <p>
+		When using a DAW or another MIDI application, disable any direct MIDI
+		monitoring or routing that bypasses <strong>Intona</strong>.
+	  </p>
 
-  <h3>Recommended MIDI Setup</h3>
+	  <p>
+		A controller that has no internal sound generator does not require Local
+		Off, but its MIDI data must still be routed to <strong>Intona</strong>
+		rather than directly to the receiving instrument.
+	  </p>
 
-  <p>A typical setup is:</p>
+	  <h2>Why the Notes Must Pass Through Intona</h2>
 
-  <pre><code>Keyboard / sequencer control track
-→ MIDI IN of <strong>Intona</strong>
-→ <strong>Intona</strong> analyses the notes and sends tuning SysEx
-→ <strong>Intona</strong> sends Note On / Note Off events
-→ Tuned output channels of the receiving instrument</code></pre>
+	  <p>
+		For real-time adaptive tuning, sending tuning SysEx messages in the
+		background is not sufficient. <strong>Intona</strong> must control the
+		order in which tuning information and note events reach the receiving
+		instrument.
+	  </p>
 
-  <p>
-    The control track should not generate sound directly.
-  </p>
+	  <p>For every incoming note, <strong>Intona</strong> may need to:</p>
 
-  <p>
-    The selected Tuned Output Channels are the channels that produce the final
-    sound. They should be configured on the receiving instrument as the actual
-    sounding parts.
-  </p>
+	  <ol>
+		<li>analyse the current musical context;</li>
+		<li>select or update the tuning;</li>
+		<li>send the required MIDI tuning message;</li>
+		<li>send the Note On to the selected output channels.</li>
+	  </ol>
 
-  <p>
-    With this setup, <strong>Intona</strong> becomes the central point that controls both the
-    tuning information and the timing of the notes that use that tuning.
-  </p>
-</section>
+	  <p>
+		If the receiving instrument plays a note before receiving the tuning
+		update, that note begins with the previous tuning. Many sound generators
+		apply newly received tuning information only to subsequent notes and do
+		not retune notes that are already sounding. With such instruments, the
+		entire note—not only its attack—remains at the previous pitch for its full
+		duration.
+	  </p>
 
+	  <p>
+		Other instruments may update active voices when they receive a tuning
+		message. Even in that case, the attack begins at the wrong pitch and the
+		subsequent correction may be audible. The exact response depends on the
+		receiving instrument, but neither behaviour is suitable for accurate
+		real-time tuning.
+	  </p>
 
-    <nav class="toc" aria-label="Table of contents">
-      <strong>Contents</strong>
-      <ol>
-        <li><a href="#introduction">Introduction</a></li>
-        <li><a href="#basic-concepts">Basic Concepts</a></li>
-        <li><a href="#midi-settings">MIDI Settings</a></li>
-        <li><a href="#tuning-surface">Tuning Surface</a></li>
-      </ol>
-    </nav>
+	  <p>
+		<strong>Intona</strong> therefore receives each note first, sends any
+		required tuning update, and only then retransmits the note to the selected
+		output channels.
+	  </p>
 
-    <section id="introduction">
-      <h2>1. Introduction</h2>
+	  <h2>MIDI Input and Output Devices</h2>
 
-      <p><strong>Intona</strong> is a real-time MIDI tuning application designed to retune incoming MIDI notes according to alternative tuning systems and adaptive intonation rules.</p>
+	  <p>
+		The MIDI input and output devices may be either the same device or two
+		different devices.
+	  </p>
 
-      <p>The application receives MIDI notes from an external keyboard, sequencer or MIDI source, analyses the musical context, and sends tuned MIDI data to one or more output MIDI channels.</p>
+	  <h3>Using One Instrument</h3>
 
-      <p><strong>Intona</strong> is intended for musicians, composers and researchers interested in microtonality, equal divisions of the octave, adaptive tuning, and non-standard pitch organisation.</p>
+	  <p>
+		A multitimbral workstation or synthesizer can act both as the controller
+		and as the sound generator. In this configuration:
+	  </p>
 
-      <p>The main goal of <strong>Intona</strong> is not only to select a static tuning, but to make intonation responsive to the musical context, while keeping the interface clear enough to be used in real time.</p>
-    </section>
+	  <ul>
+		<li>
+		  one track acts as the control track and is set to Local Off;
+		</li>
+		<li>
+		  <strong>Intona</strong> receives that track through the selected MIDI
+		  input port and channel;
+		</li>
+		<li>
+		  <strong>Intona</strong> sends the tuned performance back to one or more
+		  receiving parts through the selected MIDI output port and channels.
+		</li>
+	  </ul>
 
-    <section id="basic-concepts">
-      <h2>2. Basic Concepts</h2>
+	  <p>
+		Make sure that MIDI data returned by the instrument is not routed back
+		into <strong>Intona</strong> again, as this could create a MIDI loop.
+	  </p>
 
-      <h3>MIDI input and MIDI output</h3>
+	  <h3>Using Separate Devices</h3>
 
-      <p><strong>Intona</strong> works between a MIDI source and a MIDI sound generator.</p>
+	  <p>
+		A master keyboard may provide the control performance while another
+		synthesizer, sound module, software instrument or DAW produces the sound.
+	  </p>
 
-      <p>The MIDI source may be:</p>
-      <ul>
-        <li>a MIDI keyboard;</li>
-        <li>a MIDI controller;</li>
-        <li>a sequencer;</li>
-        <li>a DAW track;</li>
-        <li>another MIDI application.</li>
-      </ul>
+	  <p>
+		In this case, select the controller as the MIDI input device and the sound
+		generator as the MIDI output device. Local Off is required only if the
+		controller also has an internal sound engine that would otherwise play
+		together with the tuned output.
+	  </p>
 
-      <p>The MIDI output may be:</p>
-      <ul>
-        <li>an external synthesizer;</li>
-        <li>a hardware workstation;</li>
-        <li>a virtual MIDI port;</li>
-        <li>a software instrument;</li>
-        <li>a DAW input.</li>
-      </ul>
+	  <h2>Tuned Output Channels</h2>
 
-      <p>Incoming MIDI notes are received by <strong>Intona</strong>, processed according to the current tuning settings, and then sent to the selected MIDI output device.</p>
+	  <p>
+		<strong>Intona</strong> sends both tuning information and performance
+		events to every selected output channel. These channels must correspond to
+		the parts that produce the final sound.
+	  </p>
 
-      <h3>Input channel</h3>
+	  <p>
+		The tuning SysEx message explicitly identifies these output channels.
+		Channels that are not selected are not included in its channel mask and
+		should not be expected to use the tuning generated by
+		<strong>Intona</strong>.
+	  </p>
 
-      <p>The input channel determines which MIDI channel <strong>Intona</strong> listens to.</p>
+	  <p>
+		Prepare the receiving parts on the instrument itself before playing. They
+		must be able to receive the notes sent by <strong>Intona</strong> and
+		respond correctly to its MIDI tuning messages.
+	  </p>
 
-      <p>Only notes received on the selected input channel are used as the musical input for the tuning process.</p>
+	  <p>
+		Do not route the control track directly to these parts. The final sounding
+		notes should come only from <strong>Intona</strong>.
+	  </p>
 
-      <h3>Output channels</h3>
+	  <h2>Basic Setup Checklist</h2>
 
-      <p><strong>Intona</strong> can send MIDI data to one or more output channels.</p>
-
-      <p>The selected output channels are shown as numbered checkboxes from 1 to 16. Checked channels are active output channels.</p>
-
-      <p>Using several output channels can be useful when the receiving instrument supports independent tuning information per MIDI channel, or when the same musical material has to be distributed across multiple parts.</p>
-
-      <h3>Tuning surface</h3>
-
-      <p>The Tuning Surface is the main performance view of <strong>Intona</strong>.</p>
-
-      <p>It shows the selected tuning system, the current tuning centre, the organisation of notes around the tuning circle, and the currently available adaptive tuning choices.</p>
-
-      <p>The central keyboard represents the twelve conventional pitch classes, while the surrounding circle represents the selected equal division of the octave.</p>
-    </section>
+	  <ol>
+		<li>
+		  Connect the MIDI source and the receiving sound generator to the computer,
+		  tablet or mobile device on which <strong>Intona</strong> is running.
+		</li>
+		<li>
+		  Prepare one control track and select its MIDI transmit channel.
+		</li>
+		<li>
+		  Set the control track to Local Off, or otherwise prevent it from
+		  producing or forwarding sound directly.
+		</li>
+		<li>
+		  Prepare the receiving part or parts on the desired output channels.
+		</li>
+		<li>
+		  Verify that the receiving instrument supports the required MIDI tuning
+		  messages.
+		</li>
+		<li>
+		  Select the MIDI input device and input channel in
+		  <strong>Intona</strong>.
+		</li>
+		<li>
+		  Select the MIDI output device and enable the required output channels.
+		</li>
+		<li>
+		  Check that playing the control track produces sound only through
+		  <strong>Intona</strong>.
+		</li>
+		<li>Verify that no MIDI loop has been created.</li>
+	  </ol>
+	</section>
 
     <section id="midi-settings">
-      <h2>3. MIDI Setup</h2>
+	  <h1>2. MIDI Setup</h1>
 
 		<figure>
 			<img class="manual-screenshot"
 				 src="images/MIDISetup.png"
 				 alt="MIDI Setup page"
-				 style="width:85%;">
+				 style="width:80%;">
 			<figcaption>
 				MIDI Setup page.
 			</figcaption>
 		</figure>
 
 
-      <p>The MIDI Settings page is used to configure MIDI input and output.</p>
+      <p>
+	    The <strong>MIDI Setup</strong> page is used to select the MIDI input and
+	    output devices and their respective channels.
+	  </p>
 
-      <h3>MIDI status</h3>
+	  <p>
+	    The input-channel selector allows only one channel to be selected, because
+	    Intona analyses one control channel. The output-channel selector allows
+	    multiple channels to be selected, so that the tuned performance can be sent
+	    to several receiving parts.
+	  </p>
 
-      <p>At the top of the page, <strong>Intona</strong> shows the current MIDI input status.</p>
+	  <div class="note">
+	    Before selecting the MIDI ports and channels, prepare the control track and
+	    the receiving parts as described in
+	    <a href="#before-you-start">Before You Start</a>.
+	  </div>
 
-      <p>When the MIDI input is correctly opened, the status line displays:</p>
-
-      <p><strong>MIDI IN: connected</strong></p>
-
-      <p>If the input device is not available, disconnected, or already in use by another application, the status will indicate that the MIDI input could not be opened.</p>
-
-      <h3>MIDI IN</h3>
+      <h2>MIDI IN</h2>
 
       <p>The MIDI IN section selects the device and channel used as the input source.</p>
 
@@ -413,11 +501,14 @@
 
       <p><strong>Input channel</strong> selects the MIDI channel that <strong>Intona</strong> listens to.</p>
 
-      <p>Only MIDI events received on this channel are processed as input notes.</p>
+      <p>
+	    MIDI performance data received on this channel is processed by
+	    <strong>Intona</strong>; data received on the other input channels is ignored.
+	  </p>
 
       <p>The <strong>Refresh</strong> button updates the list of available MIDI input devices. Use it after connecting a new MIDI device or after opening a virtual MIDI port.</p>
 
-      <h3>MIDI OUT</h3>
+      <h2>MIDI OUT</h2>
 
       <p>The MIDI OUT section selects the MIDI output device and the active output channels.</p>
 
@@ -425,44 +516,69 @@
 
       <p>This may be a hardware synthesizer, a software instrument, a virtual MIDI port, or a MIDI input exposed by another application.</p>
 
-      <p>The numbered checkboxes from <strong>1</strong> to <strong>16</strong> select the active output channels.</p>
+      <p>
+	    The numbered channel buttons from <strong>1</strong> to
+	    <strong>16</strong> select the active output channels.
+	  </p>
 
-      <p>A checked channel is active. An unchecked channel is not used.</p>
+	  <p>
+	    Highlighted buttons identify the selected channels. Intona sends the tuned
+	    performance to every selected output channel. At least one output channel
+	    must be selected for notes to reach the sound generator.
+	  </p>
 
       <p>The <strong>Refresh</strong> button updates the list of available MIDI output devices. Use it after connecting a MIDI device, starting a virtual MIDI driver, or opening a software instrument that exposes a MIDI input port.</p>
 
-      <h3>Typical MIDI setup</h3>
+	  <p>
+	    MIDI device and channel selections are saved automatically and restored the
+	    next time <strong>Intona</strong> is started. If a previously selected device
+	    is no longer available, connect or start it and use <strong>Refresh</strong>
+	    to update the corresponding device list.
+	  </p>
 
-      <ol>
-        <li>Connect a MIDI keyboard or controller to the computer.</li>
-        <li>Select it as the MIDI IN device.</li>
-        <li>Select the MIDI channel used by the keyboard.</li>
-        <li>Select the target synthesizer or virtual MIDI port as the MIDI OUT device.</li>
-        <li>Enable the output channel or channels that should receive the tuned notes.</li>
-      </ol>
-
-      <div class="note">
-        If the same hardware instrument is used both as controller and sound generator, make sure that its local sound generation does not duplicate the notes sent through <strong>Intona</strong>. Depending on the instrument, this may require using Local Off or an equivalent MIDI routing configuration.
-      </div>
     </section>
 
-    <section id="tuning-surface">
-      <h2>4. Tuning Surface</h2>
+	<section id="tuning-fundamentals">
+	  <h1>3. Tuning Fundamentals</h1>
+    </section>
 
+	<section id="tuning-surface">
+	  <h1>4. Tuning Surface</h1>
 
-	<figure>
-		<img class="manual-screenshot"
-			 src="images/TuningSurface.png"
-			 alt="Tuning Surface page"
-			 style="width:85%;">
-		<figcaption>
-			Tuning Surface page.
-		</figcaption>
-	</figure>
+	  <figure>
+		  <img class="manual-screenshot"
+			   src="images/TuningSurface.png"
+			   alt="Tuning Surface page"
+			   style="width:80%;">
+		  <figcaption>
+			  Tuning Surface page.
+		  </figcaption>
+	  </figure>
 
-      <p>The Tuning Surface page is the main control and visualisation area of <strong>Intona</strong>.</p>
+	  <p>
+		The <strong>Tuning Surface</strong> is the main performance view of
+		<strong>Intona</strong>. It shows how the twelve conventional pitch
+		classes are mapped onto the currently selected equal division of the
+		octave and allows that mapping to be inspected and edited in real time.
+	  </p>
 
-      <p>It shows the current tuning system, the tuning centre, the note layout, and the available adaptive tuning choices.</p>
+	  <p>
+		The central keyboard represents the twelve conventional pitch classes.
+		Each key displays the pitch currently assigned to it within the selected
+		EDO.
+	  </p>
+
+	  <p>
+		The surrounding circle represents all the steps of the current EDO.
+		Highlighted positions identify the twelve pitches assigned to the keyboard,
+		while the remaining positions show the other available steps of the tuning
+		system.
+	  </p>
+
+	  <p>
+		The Tuning Surface also displays the current tuning centre and, when they
+		are available, the key and chord root inferred from the musical context.
+	  </p>
 
       <h3>Tuning circle</h3>
 
@@ -547,7 +663,9 @@
       <p>The small remove button on the right of each row can be used to discard a listed choice when it is no longer needed.</p>
 
       <p>This panel is especially useful when working with adaptive tuning, because it shows the available alternatives in a compact form.</p>
-    </section>
+
+	</section>
+
   </main>
 </body>
 </html>
