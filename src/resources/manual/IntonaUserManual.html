@@ -540,6 +540,17 @@
 
 	<section id="tuning-fundamentals">
 	  <h1>3. Tuning Fundamentals</h1>
+      <h2>Assigning the selected notes to the keyboard</h2>
+      <p>When selecting a tuning centre, Intona keeps its twelve selected notes and orders them by pitch. It then chooses the octave rotation that minimises the sum of absolute distances in cents from the twelve standard 12-EDO keys, treating 0 and 1200 cents as the same pitch class.</p>
+      <p>If rotations have the same total distance, Intona first chooses the one with the smallest worst distance, then the one with the note on C closest to 0 or 1200 cents. The automatic adaptation uses the same assignments. Previously saved presets retain their explicit keyboard assignments; selecting a tuning centre again applies the new rule.</p>
+      <h2>Note naming conventions</h2>
+      <p>Open Settings and choose a convention under Note names. The choice is saved automatically and applies to the tuning circle, keyboard, tuning centre, keys, chords and preset labels.</p>
+      <p><strong>Cycle of fifths</strong> is the default. It preserves the original spelling with as many sharps or flats as required by the current interpretation and tuning centre.</p>
+      <p><strong>Simplified names and +/-</strong> first chooses the tuning centre name. It keeps the original name when it has at most two sharps or flats; otherwise, it uses the nearest pitch represented by a natural note, single accidental or double accidental. Each + means one step above that note in the selected EDO; each - means one step below. The double sharp is displayed as ×.</p>
+      <p>Distance is measured across the octave boundary as well. Ties favour fewer accidentals, then the anchor closest to the original name in the cycle of fifths. An exact equivalent takes precedence over any name requiring + or -.</p>
+      <p>The other eleven selected notes are spelled relative to the chosen tuning centre: minor second, major second, minor third, major third, perfect fourth, augmented fourth, perfect fifth, minor sixth, major sixth, minor seventh and major seventh. These interval spellings take precedence over the two-accidental limit. For example, the major third of A× is C3#, even if that pitch has a simpler enharmonic name. With centre C, the selected names are C, Db, D, Eb, E, F, F#, G, Ab, A, Bb and B.</p>
+      <p>If the tuning centre name contains + or -, every selected degree inherits the same step modifier. In 53-EDO, a centre originally spelled B3# becomes C×+, and its major third is E×+. Notes outside the selected twelve use the nearest name with at most two accidentals independently. Custom configurations without a tuning centre use this independent rule for every note. Preset labels use each preset's own tuning centre.</p>
+      <p>For chord names, a root ending in + or - is enclosed in parentheses before a chord suffix, so the step modifier remains distinct from the chord quality. Changing this preference changes labels only; it does not change pitches, MIDI tuning, tuning centres or saved preset values.</p>
     </section>
 
 	<section id="tuning-surface">

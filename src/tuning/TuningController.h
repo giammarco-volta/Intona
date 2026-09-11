@@ -3,6 +3,7 @@
 #include "../Config.hpp"
 #include "../ChordRecognizer.h"
 #include "TuningTypes.h"
+#include "NoteNaming.h"
 
 #include <QObject>
 #include <optional>
@@ -17,6 +18,7 @@ namespace Intona::Tuning
 
 struct TuningUiSnapshot
 {
+  int noteNamingMode = 0;
   int edoIndex = 0;
   int edo = 0;
   QVariantList availableEdos;
@@ -120,6 +122,9 @@ public:
     MidiController* midiController,
     QObject* parent = nullptr);
 
+  int noteNamingMode() const { return static_cast<int>(noteNamingMode_); }
+  void setNoteNamingMode(int mode);
+
   int edoIndex() const;
   void setEdoIndex(int index);
 
@@ -170,6 +175,7 @@ signals:
 
 private:
   MidiController* midiController_ = nullptr;
+  NoteNamingMode noteNamingMode_ = NoteNamingMode::Fifths;
   int edoIndex_ = 10;
   Config currentConfig_;
   double currentGlobalOffsetCents_ = 0.0;
@@ -179,7 +185,9 @@ private:
   int8_t currentKeyTonic_ = Config::invalid;
   bool currentKeyIsMinor_ = false;
   int8_t currentChordRoot_ = Config::invalid;
-  QString currentChordName_;
+  bool currentChordNameValid_ = false;
+  QString currentChordSuffix_;
+  int8_t currentChordBass_ = Config::invalid;
 
   uint8_t minNoteNumberForAdapting_ = 2;
   ConfigMask pressedMask5_ = 0;
@@ -231,6 +239,7 @@ private:
     int8_t& keyTonic,
     bool& isMinor);
 
+  QString noteName(int fifths) const;
   void resetScaleData();
   bool adoptConfig(
     const Config& config,

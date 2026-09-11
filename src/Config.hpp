@@ -1,5 +1,7 @@
 #pragma once
 
+#include "tuning/KeyboardMapping.h"
+
 #include <array>
 #include <bitset>
 #include <cstdint>
@@ -52,6 +54,9 @@ struct Config
   ConfigMask mask;
 };
 
+// Each EDO has its own immutable keyboard assignment for the same note sets.
+inline std::array<Config, kConfigPoolSize> makeKeyboardConfigPool(int edo, int fifthStep);
+
 //----------------
 struct NtetMapping
 //----------------
@@ -61,6 +66,9 @@ struct NtetMapping
   int8_t minValue;
   int8_t maxValue;
   std::array<std::vector<int8_t>, 12> interpretationsForKey;
+
+  std::array<Config, kConfigPoolSize> keyboardConfigs =
+    makeKeyboardConfigPool(N, fifthStep);
 
   const Config& getConfig(int8_t tuningCenter) const;
 };
@@ -573,13 +581,25 @@ inline const std::array<Config, kConfigPoolSize> configPool =
   }
 };
 
+inline std::array<Config, kConfigPoolSize> makeKeyboardConfigPool(int edo, int fifthStep)
+{
+  auto result = configPool;
+  for (auto& config : result)
+  {
+    config.valueForKey = Intona::Tuning::closestKeyboardMapping(
+      config.valueForKey, edo, fifthStep);
+    // Reordering leaves the symbolic mask and tuning center unchanged.
+  }
+  return result;
+}
+
 //---------------------------------------------------------
 inline const Config& NtetMapping::getConfig(int8_t tuningCenter) const
 //---------------------------------------------------------
 {
   Q_ASSERT(isValidTuningCenter(tuningCenter, *this));
   Q_ASSERT(tuningCenter >= kConfigPoolMin && tuningCenter <= kConfigPoolMax);
-  return configPool[static_cast<size_t>(tuningCenter - kConfigPoolMin)];
+  return keyboardConfigs[static_cast<size_t>(tuningCenter - kConfigPoolMin)];
 }
 
 //---------------------------------------------------

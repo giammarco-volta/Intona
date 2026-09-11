@@ -33,6 +33,8 @@ set(INTONA_SOURCES
   src/Config.hpp
   src/CentsUtilities.hpp
   src/StringUtilities.hpp
+  src/tuning/NoteNaming.h
+  src/tuning/KeyboardMapping.h
   src/Chords.h
   src/Chords.cpp
   src/ChordRecognizer.h
@@ -93,6 +95,7 @@ qt_add_qml_module(Intona
 	src/qml/controls/TuningCircle.qml
     src/qml/controls/TuningKeyboard.qml
     src/qml/pages/MidiSetupPage.qml
+    src/qml/pages/SettingsPage.qml
     src/qml/pages/TuningSurfacePage.qml
     src/qml/pages/UserManualPage.qml
     src/qml/pages/AboutPage.qml
@@ -165,3 +168,19 @@ if(ANDROID)
 endif()
 
 qt_finalize_executable(Intona)
+
+option(INTONA_BUILD_TESTS "Build note naming regression tests" OFF)
+if(INTONA_BUILD_TESTS)
+  enable_testing()
+  set(INTONA_TEST_SOURCES ${INTONA_SOURCES})
+  list(REMOVE_ITEM INTONA_TEST_SOURCES src/main.cpp)
+  add_executable(IntonaNamingTests tests/NoteNamingTests.cpp tests/KeyboardMappingTests.cpp ${INTONA_TEST_SOURCES})
+  target_include_directories(IntonaNamingTests PRIVATE src)
+  target_link_libraries(IntonaNamingTests PRIVATE NaadaLab::Midi Qt6::Core)
+  add_test(NAME IntonaNoteNaming COMMAND IntonaNamingTests)
+  add_executable(IntonaSettingsPageTests tests/SettingsPageTests.cpp)
+  target_compile_definitions(IntonaSettingsPageTests PRIVATE
+    INTONA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+  target_link_libraries(IntonaSettingsPageTests PRIVATE NaadaLab::Ui Qt6::QuickControls2)
+  add_test(NAME IntonaSettingsPage COMMAND IntonaSettingsPageTests)
+endif()

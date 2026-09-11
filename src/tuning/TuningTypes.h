@@ -61,7 +61,9 @@ struct AdaptiveChoice
   bool chordRootValid = false;
   int8_t chordRoot = 0;
   ChordStructure chordStructure = ChordStructure::None;
-  QString chordName;
+  bool chordNameValid = false;
+  QString chordSuffix;
+  int8_t chordBass = Config::invalid;
 };
 
 struct ChordRootAnalysis

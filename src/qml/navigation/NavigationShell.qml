@@ -46,6 +46,11 @@ Item {
             icon: "midi"
         },
         {
+            section: "settings",
+            name: qsTr("Settings"),
+            icon: "settings"
+        },
+        {
             section: "manual",
             name: qsTr("Manual"),
             icon: "manual"
@@ -63,10 +68,12 @@ Item {
             return 0
         case "midi":
             return 1
-        case "manual":
+        case "settings":
             return 2
-        case "about":
+        case "manual":
             return 3
+        case "about":
+            return 4
         default:
             return 0
         }
@@ -117,6 +124,9 @@ Item {
             }
 
             MidiSetupPage {
+            }
+
+            SettingsPage {
             }
 
             UserManualPage {

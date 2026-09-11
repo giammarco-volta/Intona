@@ -444,9 +444,7 @@ Item {
         }
 
         Item {
-            width: Math.max(
-                       adaptingLabel.implicitWidth + 20,
-                       root.diameter * 0.32)
+            width: adaptingLabel.implicitWidth
             height: root.optionTouchHeight
 
             Label {

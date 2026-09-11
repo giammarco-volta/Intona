@@ -13,10 +13,13 @@ namespace Intona::Tuning
 namespace
 {
 
-bool pressedMaskContainsFifth(uint16_t pressedKeyMask, int16_t value)
+bool pressedMaskContainsFifth(
+  uint16_t pressedKeyMask, int16_t value, const Config& config)
 {
-  return (pressedKeyMask
-    & (uint16_t{ 1 } << fifthToSemitone(value))) != 0;
+  for (int key = 0; key < 12; ++key)
+    if (config.valueForKey[key] == value && hasKey12(pressedKeyMask, key))
+      return true;
+  return false;
 }
 
 } // namespace
@@ -71,7 +74,7 @@ std::optional<KeyChoice> inferKeyFromDominantSignature(
 
       if (pressedMaskContainsFifth(
             pressedKeyMask,
-            relativeMinorLeadingTone))
+            relativeMinorLeadingTone, config))
       {
         return KeyChoice{relativeMinorTonic, true};
       }

@@ -12,6 +12,7 @@ class TuningViewModel final : public QObject
 {
   Q_OBJECT
 
+  Q_PROPERTY(int noteNamingMode READ noteNamingMode WRITE setNoteNamingMode NOTIFY tuningStateChanged)
   Q_PROPERTY(int edoIndex READ edoIndex WRITE setEdoIndex NOTIFY tuningStateChanged)
   Q_PROPERTY(int edo READ edo NOTIFY tuningStateChanged)
   Q_PROPERTY(QVariantList availableEdos READ availableEdos CONSTANT)
@@ -35,6 +36,9 @@ public:
   explicit TuningViewModel(
     TuningController* worker,
     QObject* parent = nullptr);
+
+  int noteNamingMode() const { return state_.noteNamingMode; }
+  void setNoteNamingMode(int mode);
 
   int edoIndex() const { return state_.edoIndex; }
   int edo() const { return state_.edo; }

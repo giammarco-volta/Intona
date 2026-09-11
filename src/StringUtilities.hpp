@@ -1,6 +1,7 @@
-﻿#pragma once
+#pragma once
 
 #include <QString>
+#include "tuning/NoteNaming.h"
 #include "CentsUtilities.hpp"
 
 //------------------------------------
@@ -55,3 +56,25 @@ static QString noteNameFromFifths(int fifthsFromC)
 }
 
 
+
+// Preserve the symbolic fifth value; this conversion only affects its label.
+static QString displayNoteName(
+  int fifthsFromC,
+  const NtetMapping& mapping,
+  Intona::Tuning::NoteNamingMode mode,
+  int tuningCenter = Config::invalid)
+{
+  if (mode == Intona::Tuning::NoteNamingMode::Fifths)
+    return noteNameFromFifths(fifthsFromC);
+
+  const bool isSelectedDegree = tuningCenter != Config::invalid
+    && fifthsFromC >= tuningCenter - 5 && fifthsFromC <= tuningCenter + 6;
+  const auto spelling = isSelectedDegree
+    ? Intona::Tuning::relativeNoteSpelling(
+        fifthsFromC, tuningCenter, mapping.N, mapping.fifthStep)
+    : Intona::Tuning::limitedNoteSpelling(
+        fifthsFromC, mapping.N, mapping.fifthStep);
+  return noteNameFromFifths(spelling.fifths)
+    + QString(std::abs(spelling.stepOffset),
+              spelling.stepOffset < 0 ? QLatin1Char('-') : QLatin1Char('+'));
+}

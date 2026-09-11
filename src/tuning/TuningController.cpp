@@ -27,14 +27,13 @@ bool keyContainsMask(
   return (keyPressedMask12 & ~keyMask12) == 0;
 }
 
-uint16_t keyMaskFor(int16_t tonic5, bool isMinor)
+uint16_t keyMaskFor(int16_t tonic5, bool isMinor, const Config& config)
 {
-  const uint8_t tonic12 =
-    uint8_t(fifthToSemitone(tonic5));
-
-  return isMinor
-    ? minorKeyMasks[tonic12]
-    : majorKeyMasks[tonic12];
+  const auto key = std::find(config.valueForKey.begin(), config.valueForKey.end(), tonic5);
+  if (key == config.valueForKey.end())
+    return 0;
+  const int tonic12 = int(std::distance(config.valueForKey.begin(), key));
+  return isMinor ? minorKeyMasks[tonic12] : majorKeyMasks[tonic12];
 }
 
 } // namespace
@@ -45,8 +44,13 @@ TuningController::TuningController(
   : QObject(parent),
     midiController_(midiController)
 {
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+    "NaadaLab", "Intona");
   settings.beginGroup("status");
+
+  const int savedNamingMode = settings.value("noteNamingMode", 0).toInt();
+  if (savedNamingMode == static_cast<int>(NoteNamingMode::LimitedAccidentals))
+    noteNamingMode_ = NoteNamingMode::LimitedAccidentals;
 
   int savedEdoIndex =
     settings.value("edoIndex", 10).toInt();
@@ -136,6 +140,28 @@ TuningController::TuningController(
   cycleAftertouchMode();
 }
 
+void TuningController::setNoteNamingMode(int mode)
+{
+  if (mode < static_cast<int>(NoteNamingMode::Fifths)
+    || mode > static_cast<int>(NoteNamingMode::LimitedAccidentals)
+    || mode == noteNamingMode())
+  {
+    return;
+  }
+
+  noteNamingMode_ = static_cast<NoteNamingMode>(mode);
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+    "NaadaLab", "Intona");
+  settings.setValue("status/noteNamingMode", mode);
+  emit tuningStateChanged();
+}
+
+QString TuningController::noteName(int fifths) const
+{
+  return displayNoteName(
+    fifths, kNtetMappings[edoIndex_], noteNamingMode_, currentConfig_.tuningCenter);
+}
+
 int TuningController::edoIndex() const
 {
   return edoIndex_;
@@ -174,7 +200,8 @@ void TuningController::setEdoIndex(int index)
     currentGlobalOffsetCents_ = *offset;
   }
 
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+    "NaadaLab", "Intona");
   settings.beginGroup("status");
   settings.setValue("edoIndex", edoIndex_);
   settings.endGroup();
@@ -209,7 +236,7 @@ QString TuningController::tuningCenterName() const
   if (currentConfig_.tuningCenter == Config::invalid)
     return {};
 
-  return noteNameFromFifths(
+  return noteName(
     currentConfig_.tuningCenter);
 }
 
@@ -232,6 +259,16 @@ void TuningController::selectTuningCenter(int value)
     currentGlobalOffsetCents_ = *offset;
   }
 
+  // Held MIDI keys now play the newly assigned notes as well.
+  pressedMask5_.reset();
+  for (auto& note : activeNotes_)
+  {
+    note.interpretedValue = currentConfig_.valueForKey[note.key];
+    pressedMask5_ |= valueToPoolBit(note.interpretedValue);
+  }
+  currentChordRoot_ = Config::invalid;
+  currentChordNameValid_ = false;
+  resetScaleData();
   sendCurrentTuning(true);
   invalidateIncompatibleKey();
   emit tuningStateChanged();
@@ -254,7 +291,7 @@ QStringList TuningController::keyNames() const
   names.reserve(12);
 
   for (const int8_t value : currentConfig_.valueForKey)
-    names.append(noteNameFromFifths(value));
+    names.append(noteName(value));
 
   return names;
 }
@@ -393,7 +430,7 @@ QVariantList TuningController::circleEntries() const
     entry.insert("value", int(*value));
     entry.insert(
       "name",
-      noteNameFromFifths(*value));
+      noteName(*value));
     entry.insert(
       "cents",
       1200.0 * double(pitchStep)
@@ -427,7 +464,8 @@ QVariantList TuningController::presetEntries() const
     names.reserve(12);
 
     for (const int8_t value : preset.values)
-      names.append(noteNameFromFifths(value));
+      names.append(displayNoteName(
+        value, kNtetMappings[edoIndex_], noteNamingMode_, preset.tuningCenter));
 
     QVariantMap entry;
     entry.insert("index", index);
@@ -450,7 +488,8 @@ TuningController::loadPresets() const
   std::vector<TuningPreset> presets;
   const NtetMapping& mapping = kNtetMappings[edoIndex_];
 
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+    "NaadaLab", "Intona");
   settings.beginGroup(
     QString("tuningPresetsV2/%1").arg(mapping.N));
 
@@ -519,7 +558,8 @@ void TuningController::savePresets(
   const std::vector<TuningPreset>& presets) const
 {
   const int currentEdo = kNtetMappings[edoIndex_].N;
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+    "NaadaLab", "Intona");
   settings.beginGroup(
     QString("tuningPresetsV2/%1").arg(currentEdo));
   settings.remove("");
@@ -624,7 +664,8 @@ void TuningController::setAdaptingEnabled(bool enabled)
 
   adaptingEnabled_ = enabled;
 
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+    "NaadaLab", "Intona");
   settings.beginGroup("status");
   settings.setValue("adaptingEnabled", adaptingEnabled_);
   settings.endGroup();
@@ -667,7 +708,8 @@ void TuningController::cycleAftertouchMode()
     break;
   }
 
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+    "NaadaLab", "Intona");
   settings.beginGroup("status");
   settings.setValue(
     "aftertouchBehaviour",
@@ -686,7 +728,7 @@ QString TuningController::keyDescription() const
     return {};
 
   return tr("Key = %1 %2")
-    .arg(noteNameFromFifths(currentKeyTonic_))
+    .arg(noteName(currentKeyTonic_))
     .arg(currentKeyIsMinor_ ? tr("minor") : tr("major"));
 }
 
@@ -695,11 +737,23 @@ QString TuningController::chordDescription() const
   if (currentChordRoot_ == Config::invalid)
     return {};
 
-  if (!currentChordName_.isEmpty())
-    return tr("Chord = %1").arg(currentChordName_);
+  if (currentChordNameValid_)
+  {
+    QString name = noteName(currentChordRoot_);
+    // Separate step modifiers from chord qualities such as augmented "+".
+    if ((name.endsWith('+') || name.endsWith('-'))
+      && !currentChordSuffix_.isEmpty())
+    {
+      name = "(" + name + ")";
+    }
+    name += currentChordSuffix_;
+    if (currentChordBass_ != Config::invalid)
+      name += "/" + noteName(currentChordBass_);
+    return tr("Chord = %1").arg(name);
+  }
 
   return tr("Chord Root = %1")
-    .arg(noteNameFromFifths(currentChordRoot_));
+    .arg(noteName(currentChordRoot_));
 }
 
 QVariantList TuningController::pressedKeys() const
@@ -719,6 +773,7 @@ QVariantList TuningController::pressedKeys() const
 TuningUiSnapshot TuningController::uiSnapshot() const
 {
   TuningUiSnapshot snapshot;
+  snapshot.noteNamingMode = noteNamingMode();
   snapshot.edoIndex = edoIndex();
   snapshot.edo = edo();
   snapshot.availableEdos = availableEdos();
@@ -937,7 +992,9 @@ void TuningController::processMidiNote(
     choice.chordRootValid && activeNotes_.size() >= 3
       ? choice.chordRoot
       : Config::invalid;
-  currentChordName_ = choice.chordName;
+  currentChordNameValid_ = choice.chordNameValid;
+  currentChordSuffix_ = choice.chordSuffix;
+  currentChordBass_ = choice.chordBass;
 
   if (choice.config->valueForKey
     != currentConfig_.valueForKey)
@@ -1004,7 +1061,7 @@ TuningController::chooseBestLocalKey(
       || key.tonic > mapping.maxValue)
       continue;
     if (keyContainsMask(
-          keyMaskFor(key.tonic, key.isMinor),
+          keyMaskFor(key.tonic, key.isMinor, config),
           pressedKeyMask12))
       return key;
   }
@@ -1018,7 +1075,7 @@ TuningController::chooseBestLocalKey(
       || key.tonic > mapping.maxValue)
       continue;
     if (!keyContainsMask(
-          keyMaskFor(key.tonic, key.isMinor),
+          keyMaskFor(key.tonic, key.isMinor, config),
           pressedKeyMask12))
       continue;
 
@@ -1046,7 +1103,7 @@ TuningController::chooseBestInterpretationAndConfigByChords(
   bool isOn)
 {
   AdaptiveChoice choice;
-  const Chord chord = chordRecognizer_.Recognize();
+  Chord chord = chordRecognizer_.Recognize();
   const NtetMapping& mapping = kNtetMappings[edoIndex_];
   const Config* selectedConfig = &currentConfig_;
   bool inferChordFromCurrent = false;
@@ -1203,15 +1260,12 @@ TuningController::chooseBestInterpretationAndConfigByChords(
     choice.chordRoot =
       selectedConfig->valueForKey[chord.root_];
     choice.chordStructure = ChordStructure::Tertian;
-    choice.chordName =
-      noteNameFromFifths(choice.chordRoot)
-      + chord.GetChordString();
+    choice.chordNameValid = true;
+    choice.chordSuffix = chord.GetChordString();
 
     if (chord.bass_ != chord.root_)
     {
-      const int8_t bass =
-        selectedConfig->valueForKey[chord.bass_];
-      choice.chordName += "/" + noteNameFromFifths(bass);
+      choice.chordBass = selectedConfig->valueForKey[chord.bass_];
     }
   }
 

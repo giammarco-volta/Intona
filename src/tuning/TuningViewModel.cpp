@@ -20,6 +20,14 @@ TuningViewModel::TuningViewModel(
     Qt::DirectConnection);
 }
 
+void TuningViewModel::setNoteNamingMode(int mode)
+{
+  QMetaObject::invokeMethod(
+    worker_,
+    [worker = worker_, mode]() { worker->setNoteNamingMode(mode); },
+    Qt::QueuedConnection);
+}
+
 void TuningViewModel::setEdoIndex(int index)
 {
   QMetaObject::invokeMethod(
