@@ -33,6 +33,8 @@ struct ActiveNote
   uint8_t velocity;
   int8_t interpretedValue;  // fifth-cycle value, e.g. E = 4, G# = 8
   uint32_t startMs;
+  uint64_t generation = 0;
+  uint32_t minimumDurationMs = 0;
 };
 
 struct KeyChoice

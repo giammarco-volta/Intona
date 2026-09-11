@@ -39,6 +39,7 @@ int main(int argc, char** argv)
   QQmlEngine engine;
   QQmlPropertyMap settings;
   settings.insert("noteNamingMode", 0);
+  settings.insert("dirtyNoteThresholdMs", 100);
   engine.rootContext()->setContextProperty("TuningController", &settings);
   QQmlComponent component(&engine);
   const auto pages = QUrl::fromLocalFile(QStringLiteral(INTONA_SOURCE_DIR "/src/qml/pages")).toString();
@@ -70,6 +71,14 @@ ApplicationWindow {
     std::cerr << component.errorString().toStdString() << "Missing window or selector\n";
     return 1;
   }
+  auto* threshold = root->findChild<QObject*>("dirtyNoteThresholdSelector");
+  if (!threshold || threshold->property("value").toInt() != 100) return 8;
+  threshold->setProperty("value", 150);
+  QMetaObject::invokeMethod(threshold, "valueModified");
+  if (settings.value("dirtyNoteThresholdMs").toInt() != 150) return 9;
+  settings.insert("dirtyNoteThresholdMs", 75);
+  settle();
+  if (threshold->property("value").toInt() != 75) return 10;
   settle();
   if (selector->property("currentIndex").toInt() != 0)
     return 2;
@@ -97,6 +106,6 @@ ApplicationWindow {
   if (!screenshotDir.isEmpty()
     && !window->grabWindow().save(screenshotDir + "/settings-mobile.png"))
     return 7;
-  std::cout << "PASS: Settings page loads, selection writes preference, external updates preserve binding, desktop and mobile render.\n";
+  std::cout << "PASS: Settings page loads, naming and duration controls write preferences, external updates preserve bindings, desktop and mobile render.\n";
   return 0;
 }

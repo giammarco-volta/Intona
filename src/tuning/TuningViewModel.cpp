@@ -20,6 +20,13 @@ TuningViewModel::TuningViewModel(
     Qt::DirectConnection);
 }
 
+void TuningViewModel::setDirtyNoteThresholdMs(int milliseconds)
+{
+  QMetaObject::invokeMethod(worker_,
+    [worker = worker_, milliseconds]() { worker->setDirtyNoteThresholdMs(milliseconds); },
+    Qt::QueuedConnection);
+}
+
 void TuningViewModel::setNoteNamingMode(int mode)
 {
   QMetaObject::invokeMethod(

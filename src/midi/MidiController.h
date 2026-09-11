@@ -62,6 +62,8 @@ class MidiController final : public QObject
 
 public:
   explicit MidiController(QObject* parent = nullptr);
+  MidiController(std::unique_ptr<IMidiOut> output, quint32 channelMask,
+    QObject* parent = nullptr);
   ~MidiController() override;
 
   Q_INVOKABLE void start();

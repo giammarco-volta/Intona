@@ -35,6 +35,7 @@ struct Chord
     typeF5,           // Flatted 5th
     typeDim7,         // Diminished 7th
     typeAug6th,       // German augmented sixth
+    typeFrench6th,    // French augmented sixth
 
     NumOfChordTypes,
     typeNull = 0xFF     // Null chord
@@ -105,6 +106,7 @@ struct Chord
   EChordTension9 t9_ = tensionVoid9;
   EChordTension11 t11_ = tensionVoid11;
   EChordTension13 t13_ = tensionVoid13;
+  bool omitRoot_ = false; // Rootless minor sixth, with a virtual harmonic root.
 
   static const char* sChordNames
     [Chord::NumOfChordTypes]

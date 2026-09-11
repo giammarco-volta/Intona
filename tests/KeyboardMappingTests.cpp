@@ -166,7 +166,25 @@ void runKeyboardMappingTests(const QString& temporarySettingsFile)
   remappedChord.root_ = 5;
   remappedChord.type_ = Chord::typeMajor;
   const auto* unrestricted = FindConfig(remappedChord, {24}, edo31, legacy, KeepOldNotes::No);
-  check(unrestricted == &example, "Adaptive lookup must consider the optimized root assignment");
+  check(unrestricted && TestChordConfig(remappedChord, *unrestricted),
+    "Adaptive lookup must match the optimized physical root assignment");
+  const auto harmonicScore = [&](const Config& candidate) {
+    int local = 0, global = 0;
+    for (int key = 0; key < 12; ++key)
+    {
+      const int distance = std::abs(candidate.valueForKey[key] - legacy.valueForKey[key]);
+      global += distance;
+      if (key == 5 || key == 9 || key == 0) local += distance;
+    }
+    return std::make_tuple(local, global, candidate.valueForKey);
+  };
+  for (int center = edo31.minValue; center <= edo31.maxValue; ++center)
+  {
+    const auto& candidate = edo31.getConfig(static_cast<int8_t>(center));
+    if (TestChordConfig(remappedChord, candidate))
+      check(harmonicScore(*unrestricted) <= harmonicScore(candidate),
+        "Adaptive lookup minimizes harmonic distance rather than center distance");
+  }
   const auto* preserving = FindConfig(remappedChord, {24}, edo31, legacy, KeepOldNotes::Yes);
   check(!preserving || preserving->valueForKey[0] == 24,
     "Keeping a held note means keeping it on the same physical key");

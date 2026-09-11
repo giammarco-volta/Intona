@@ -17,6 +17,12 @@ MidiController::MidiController(QObject* parent)
   loadSettings();
 }
 
+MidiController::MidiController(std::unique_ptr<IMidiOut> output,
+  quint32 channelMask, QObject* parent)
+  : QObject(parent), midiOut_(std::move(output)), midiOutChannelMask_(channelMask & 0xffffu)
+{
+}
+
 void MidiController::start()
 {
   if (!midiIn_)

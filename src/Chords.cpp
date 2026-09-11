@@ -156,6 +156,7 @@ void Chord::InitChordNames()
   sChordNames[Chord::typeF5][Chord::tensionVoid9][Chord::tensionVoid11][Chord::tensionVoid13] = "(b5)";
   // typeAug6th
   sChordNames[Chord::typeAug6th][Chord::tensionVoid9][Chord::tensionVoid11][Chord::tensionVoid13] = "(#6)";
+  sChordNames[Chord::typeFrench6th][Chord::tensionVoid9][Chord::tensionVoid11][Chord::tensionVoid13] = "Fr(#6)";
 }
 
 static constexpr int8_t unison( 0);
@@ -203,7 +204,8 @@ const std::array<std::list<int8_t>, Chord::NumOfChordTypes> kChordNotesIn5Cycles
   std::list<int8_t>{ prf5th                 },//typeMajNo3,       Major w/o 3rd
   std::list<int8_t>{ maj3rd, dim5th         },//typeF5,           Flatted 5th
   std::list<int8_t>{ min3rd, dim5th, dim7th },//typeDim7,         Diminished 7th
-  std::list<int8_t>{ min3rd, dim5th, aug6th },//typeAug6th,       German augmented sixth
+  std::list<int8_t>{ maj3rd, prf5th, aug6th },//typeAug6th,       German augmented sixth
+  std::list<int8_t>{ maj3rd, aug4th, aug6th },//typeFrench6th,    French augmented sixth
 };
 
 const std::array<int8_t, 4> kTens9th{ unison, min2nd, maj2nd, aug2nd };

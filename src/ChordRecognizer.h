@@ -133,5 +133,6 @@ private:
 
 private:
   CKeysMap m_oKeysMap;
+  Chord lastChord_;
 };
 

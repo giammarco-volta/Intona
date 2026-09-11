@@ -27,7 +27,8 @@ const int8_t kInterval3rd[Chord::NumOfChordTypes] =
   -1,     // typeMajNo3      !!! CAUTION !!!
    4,     // typeF5
    3,     // typeDim7
-   4,     // typeMajor
+   4,     // typeAug6th
+   4,     // typeFrench6th
 };
 
 //----------------------------------------------------------------------------------
@@ -491,7 +492,7 @@ Chord ChordRecognizer::SlashChord(uint8_t iLNoteNum, uint8_t iHNoteNum)
 Chord ChordRecognizer::Recognize()
 //--------------------------------
 {
-  static Chord tLastChord;
+  Chord& tLastChord = lastChord_;
 
   const int kiDeltaTime = 70;
   int iLnote, iHnote;

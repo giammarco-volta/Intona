@@ -2,6 +2,7 @@
 
 #include "../Config.hpp"
 #include "../ChordRecognizer.h"
+#include "../TuningCenterFinder.h"
 #include "TuningTypes.h"
 #include "NoteNaming.h"
 
@@ -12,12 +13,14 @@
 #include <QVariantList>
 
 class MidiController;
+class QTimer;
 
 namespace Intona::Tuning
 {
 
 struct TuningUiSnapshot
 {
+  int dirtyNoteThresholdMs = 100;
   int noteNamingMode = 0;
   int edoIndex = 0;
   int edo = 0;
@@ -42,6 +45,9 @@ struct TuningUiSnapshot
 class TuningController final : public QObject
 {
   Q_OBJECT
+
+  Q_PROPERTY(int dirtyNoteThresholdMs READ dirtyNoteThresholdMs
+             WRITE setDirtyNoteThresholdMs NOTIFY tuningStateChanged)
 
   Q_PROPERTY(int edoIndex
              READ edoIndex
@@ -122,6 +128,9 @@ public:
     MidiController* midiController,
     QObject* parent = nullptr);
 
+  int dirtyNoteThresholdMs() const { return dirtyNoteThresholdMs_; }
+  void setDirtyNoteThresholdMs(int milliseconds);
+
   int noteNamingMode() const { return static_cast<int>(noteNamingMode_); }
   void setNoteNamingMode(int mode);
 
@@ -193,14 +202,29 @@ private:
   ConfigMask pressedMask5_ = 0;
   uint16_t keyPressedMask12_ = 0;
   bool adaptingEnabled_ = true;
+  int dirtyNoteThresholdMs_ = 100;
+  QTimer* noteWindowTimer_ = nullptr;
+  uint64_t nextNoteGeneration_ = 0;
+  struct PendingNote
+  {
+    ActiveNote note;
+    bool released = false;
+    uint32_t durationMs = 0;
+  };
+  // Raw sounding notes are separate from notes admitted to musical reasoning.
+  std::vector<ActiveNote> confirmedNotes_;
+  std::vector<PendingNote> pendingNotes_;
+  std::vector<ActiveNote> releasedNotes_;
+  std::vector<ActiveNote> pivotNotes_;
+  std::optional<Config> chordReference_;
 
   AfterTouch afterTouch_ = AfterTouch::stepUp;
   uint8_t afterTouchThreshold_ = 64;
   bool readyToBehaveAftertouch_ = true;
 
   ChordRecognizer chordRecognizer_;
-  std::array<uint16_t, 12> majorScaleMask_{};
-  std::array<uint16_t, 12> minorScaleMask_{};
+  uint16_t melodicKeys_ = 0;
+  std::optional<HarmonicChordContext> previousChord_;
 
   std::vector<TuningPreset> loadPresets() const;
   void savePresets(
@@ -216,28 +240,19 @@ private:
     int data1,
     int data2);
 
-  void processMidiNote(
-    uint8_t note,
-    uint8_t velocity,
-    uint32_t timeMs,
-    bool isOn);
-
-  AdaptiveChoice chooseBestInterpretationAndConfigByChords(
-    uint8_t midiNote,
-    uint8_t velocity,
-    uint32_t timeMs,
-    bool isOn);
+  void cancelNoteWindow();
+  void confirmNoteWindow();
+  void evaluateNoteWindow();
+  void rebuildPressedMasks();
+  AdaptiveChoice chooseBestInterpretationAndConfigByChords();
 
   std::optional<KeyChoice> chooseBestLocalKey(
     uint16_t pressedKeyMask12,
     const Config& config,
     const NtetMapping& mapping) const;
 
-  const Config* findConfigByScale(
-    uint8_t midiNoteOff,
-    uint32_t timeMs,
-    int8_t& keyTonic,
-    bool& isMinor);
+  void recordScaleNote(const ActiveNote& note);
+  const Config* findConfigByScale(int8_t& keyTonic, bool& isMinor);
 
   QString noteName(int fifths) const;
   void resetScaleData();

@@ -32,6 +32,36 @@ Rectangle {
             }
 
             SharedUi.FormSection {
+                title: qsTr("RT Adapting")
+                Layout.fillWidth: true
+
+                Label {
+                    text: qsTr("Dirty note threshold (ms)")
+                    color: SharedUi.Theme.text
+                    Layout.fillWidth: true
+                }
+
+                SpinBox {
+                    id: dirtyNoteThreshold
+                    objectName: "dirtyNoteThresholdSelector"
+                    from: 0
+                    to: 1000
+                    stepSize: 10
+                    editable: true
+                    value: TuningController.dirtyNoteThresholdMs
+                    onValueModified: TuningController.dirtyNoteThresholdMs = value
+                    Accessible.name: qsTr("Dirty note threshold in milliseconds")
+                }
+
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: SharedUi.Theme.secondaryText
+                    text: qsTr("Notes sound immediately. Each new note restarts this waiting period. Shorter notes are ignored by the tuning engine; the remaining group is evaluated once when the timer expires. Notes already established before the group act as pivots while held. Default: 100 ms. At 0 ms, duration filtering is disabled.")
+                }
+            }
+
+            SharedUi.FormSection {
                 title: qsTr("Note names")
                 Layout.fillWidth: true
 
