@@ -159,7 +159,13 @@ void TuningViewModel::refreshFromWorker()
 
   if (read)
   {
+    const bool circleChanged = state_.circleEntries != snapshot.circleEntries;
+    const bool pressedChanged = state_.pressedKeys != snapshot.pressedKeys;
     state_ = std::move(snapshot);
+    if (circleChanged)
+      emit circleEntriesChanged();
+    if (pressedChanged)
+      emit pressedKeysChanged();
     emit tuningStateChanged();
   }
 

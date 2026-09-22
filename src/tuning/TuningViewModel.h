@@ -25,7 +25,7 @@ class TuningViewModel final : public QObject
   Q_PROPERTY(QStringList keyNames READ keyNames NOTIFY tuningStateChanged)
   Q_PROPERTY(QVariantList canRaiseKeys READ canRaiseKeys NOTIFY tuningStateChanged)
   Q_PROPERTY(QVariantList canLowerKeys READ canLowerKeys NOTIFY tuningStateChanged)
-  Q_PROPERTY(QVariantList circleEntries READ circleEntries NOTIFY tuningStateChanged)
+  Q_PROPERTY(QVariantList circleEntries READ circleEntries NOTIFY circleEntriesChanged)
   Q_PROPERTY(QVariantList presetEntries READ presetEntries NOTIFY tuningStateChanged)
   Q_PROPERTY(int currentPresetIndex READ currentPresetIndex NOTIFY tuningStateChanged)
   Q_PROPERTY(bool adaptingEnabled READ adaptingEnabled WRITE setAdaptingEnabled NOTIFY tuningStateChanged)
@@ -33,7 +33,7 @@ class TuningViewModel final : public QObject
   Q_PROPERTY(bool aftertouchEnabled READ aftertouchEnabled NOTIFY tuningStateChanged)
   Q_PROPERTY(QString keyDescription READ keyDescription NOTIFY tuningStateChanged)
   Q_PROPERTY(QString chordDescription READ chordDescription NOTIFY tuningStateChanged)
-  Q_PROPERTY(QVariantList pressedKeys READ pressedKeys NOTIFY tuningStateChanged)
+  Q_PROPERTY(QVariantList pressedKeys READ pressedKeys NOTIFY pressedKeysChanged)
 
 public:
   explicit TuningViewModel(
@@ -82,6 +82,8 @@ public:
 
 signals:
   void tuningStateChanged();
+  void circleEntriesChanged();
+  void pressedKeysChanged();
 
 private:
   void postRefreshIfNeeded();

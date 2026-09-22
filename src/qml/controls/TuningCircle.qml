@@ -134,12 +134,14 @@ Item {
     }
 
     Repeater {
-        model: root.entries
+        // Preserve delegates when only the tuning/markers change.
+        model: root.entries.length
 
         delegate: Item {
             id: entryDelegate
 
-            required property var modelData
+            required property int index
+            readonly property var modelData: root.entries[index]
 
             anchors.fill: parent
 
@@ -180,8 +182,6 @@ Item {
 
                 color: entryDelegate.isTuningCenter
                        ? "black"
-                       : parent.modelData.pressed
-                       ? SharedUi.Theme.success
                        : root.noteDragActive
                          && root.noteDragTargetStep
                             === parent.modelData.pitchStep
@@ -197,7 +197,6 @@ Item {
 
                 font.bold:
                     parent.modelData.selected
-                    || parent.modelData.pressed
 
                 scale: root.noteDragActive
                        && root.noteDragTargetStep
@@ -345,9 +344,7 @@ Item {
 
                 text: Number(parent.modelData.cents).toFixed(1)
 
-                color: parent.modelData.pressed
-                       ? SharedUi.Theme.success
-                       : parent.modelData.selected
+                color: parent.modelData.selected
                          ? SharedUi.Theme.accent
                          : SharedUi.Theme.disabledText
 

@@ -538,9 +538,6 @@ QVariantList TuningController::circleEntries() const
         / double(mapping.N));
     entry.insert("selected", selected);
     entry.insert("keyIndex", keyIndex);
-    entry.insert(
-      "pressed",
-      selected && hasKey12(keyPressedMask12_, keyIndex));
     entry.insert("keyTonic", *value == currentKeyTonic_);
     entry.insert("chordRoot", *value == currentChordRoot_);
 
@@ -878,11 +875,9 @@ QVariantList TuningController::pressedKeys() const
   QVariantList result;
   result.reserve(12);
 
-  for (const int value : currentConfig_.valueForKey)
-  {
-    result.append(
-      (pressedMask5_ & valueToPoolBit(value)) != 0);
-  }
+  // Physical key state is independent of its current spelling/intonation.
+  for (int key = 0; key < 12; ++key)
+    result.append(hasKey12(keyPressedMask12_, key));
 
   return result;
 }

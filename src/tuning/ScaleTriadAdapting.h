@@ -1,5 +1,6 @@
 #pragma once
 #include "HarmonicCostAdapting.h" // Relative keyboard geometry, not the cost engine.
+#include <array>
 #include <cstdint>
 #include <map>
 #include <set>
@@ -67,12 +68,19 @@ private:
   {
     Id anchor;
   };
+  struct TriadEvidence
+  {
+    std::array<Id, 3> notes;
+    std::array<int, 3> values;
+    double since;
+  };
   struct Snapshot
   {
     int center, stable;
     std::optional<Episode> episode;
     std::map<Id, Reading> readings;
     std::set<Id> triadPending;
+    std::vector<TriadEvidence> triads;
   };
   struct Transaction
   {
@@ -99,6 +107,7 @@ private:
   std::map<Id, Note> notes_;
   std::vector<Transaction> transactions_;
   std::set<Id> triadPending_;
+  std::vector<TriadEvidence> triads_;
   Ids context(Id trigger, const std::set<Id> *allowed = nullptr, const std::set<Id> &excluded = {},
               const std::set<Id> *held = nullptr) const;
   bool matches(int center, const Ids &cohort, int count, const std::map<Id, int> *fixed = nullptr,
@@ -109,6 +118,8 @@ private:
   bool mature(const Note &note, const Ids &cohort) const;
   Snapshot snapshot() const;
   void retainPending();
+  void rememberTriads();
+  void acquireTriadPivots();
   void checkFirst();
   void prune();
 };

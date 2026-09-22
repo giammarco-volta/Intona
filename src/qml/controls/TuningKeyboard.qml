@@ -19,6 +19,23 @@ Item {
         Math.max(34, keyboardHeight * 0.24)
     readonly property real swipeThreshold:
         Math.max(10, Math.min(24, keyboardHeight * 0.12))
+    readonly property real activeNoteFontSize:
+        Math.max(8, keyboardHeight * 0.085) * 1.3
+    readonly property real activeNoteDiameter: {
+        let size = activeNoteMetrics.height
+        for (let key = 0; key < keyNames.length; ++key) {
+            if (pressedKeys[key])
+                size = Math.max(size,
+                               activeNoteMetrics.advanceWidth(keyNames[key]))
+        }
+        return Math.ceil(size) + 10
+    }
+
+    FontMetrics {
+        id: activeNoteMetrics
+        font.pixelSize: root.activeNoteFontSize
+        font.bold: true
+    }
 
     readonly property var stepX: [
         0.075, 0.145, 0.215, 0.285,
@@ -83,7 +100,12 @@ Item {
         model: root.whiteKeys
 
         delegate: Label {
+            id: whiteKeyLabel
+
             required property var modelData
+            readonly property bool isPressed:
+                root.pressedKeys.length > modelData.key
+                && root.pressedKeys[modelData.key]
 
             x: root.width * modelData.x - width / 2
             y: root.buttonBand
@@ -93,15 +115,23 @@ Item {
 
             text: root.keyNames.length > modelData.key
                   ? root.keyNames[modelData.key] : ""
-            color: root.pressedKeys.length > modelData.key
-                   && root.pressedKeys[modelData.key]
-                   ? SharedUi.Theme.success
+            color: isPressed
+                   ? "white"
                    : SharedUi.Theme.background
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             font.bold: true
-            font.pixelSize: Math.max(8,
-                root.keyboardHeight * 0.085)
+            font.pixelSize: isPressed ? root.activeNoteFontSize
+                           : Math.max(8, root.keyboardHeight * 0.085)
+
+            background: Rectangle {
+                anchors.centerIn: parent
+                width: root.activeNoteDiameter
+                height: width
+                radius: width / 2
+                color: SharedUi.Theme.success
+                visible: whiteKeyLabel.isPressed
+            }
         }
     }
 
@@ -109,7 +139,12 @@ Item {
         model: root.blackKeys
 
         delegate: Label {
+            id: blackKeyLabel
+
             required property var modelData
+            readonly property bool isPressed:
+                root.pressedKeys.length > modelData.key
+                && root.pressedKeys[modelData.key]
 
             x: root.width * modelData.x - width / 2
             y: root.buttonBand
@@ -119,15 +154,23 @@ Item {
 
             text: root.keyNames.length > modelData.key
                   ? root.keyNames[modelData.key] : ""
-            color: root.pressedKeys.length > modelData.key
-                   && root.pressedKeys[modelData.key]
-                   ? SharedUi.Theme.success
+            color: isPressed
+                   ? "white"
                    : SharedUi.Theme.text
             horizontalAlignment: Text.AlignHCenter
             verticalAlignment: Text.AlignVCenter
             font.bold: true
-            font.pixelSize: Math.max(7,
-                root.keyboardHeight * 0.065)
+            font.pixelSize: isPressed ? root.activeNoteFontSize
+                           : Math.max(7, root.keyboardHeight * 0.065)
+
+            background: Rectangle {
+                anchors.centerIn: parent
+                width: root.activeNoteDiameter
+                height: width
+                radius: width / 2
+                color: SharedUi.Theme.success
+                visible: blackKeyLabel.isPressed
+            }
         }
     }
 

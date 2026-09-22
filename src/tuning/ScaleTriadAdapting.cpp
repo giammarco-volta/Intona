@@ -52,6 +52,7 @@ void ScaleTriadAdapting::reset(const Config &cfg)
   notes_.clear();
   transactions_.clear();
   triadPending_.clear();
+  triads_.clear();
 }
 Config ScaleTriadAdapting::config() const
 {
@@ -69,6 +70,9 @@ void ScaleTriadAdapting::seed(Id id, int key, double time)
 void ScaleTriadAdapting::noteOn(Id id, int key, double time)
 {
   time_ = time;
+  // A new gesture reuses the surviving part of a previously sounding triad.
+  // Acquire it before evaluating the new note, never on the release itself.
+  acquireTriadPivots();
   Note n;
   n.id = id;
   n.key = key;
@@ -77,6 +81,7 @@ void ScaleTriadAdapting::noteOn(Id id, int key, double time)
   notes_[id] = n;
   if (valid_)
     evaluate(id);
+  rememberTriads();
   prune();
 }
 void ScaleTriadAdapting::noteOff(Id id, double time)
@@ -106,6 +111,7 @@ void ScaleTriadAdapting::noteOff(Id id, double time)
         }
     }
   }
+  rememberTriads();
   prune();
 }
 ScaleTriadAdapting::Ids ScaleTriadAdapting::context(Id trigger, const std::set<Id> *allowed,
@@ -242,7 +248,7 @@ ScaleTriadAdapting::Selection ScaleTriadAdapting::select(const Ids &cohort)
 }
 ScaleTriadAdapting::Snapshot ScaleTriadAdapting::snapshot() const
 {
-  Snapshot s{center_, stable_, episode_, {}, triadPending_};
+  Snapshot s{center_, stable_, episode_, {}, triadPending_, triads_};
   for (const auto &[i, n] : notes_)
     s.readings[i] = n.reading;
   return s;
@@ -324,6 +330,92 @@ void ScaleTriadAdapting::retainPending()
     if (notes_.count(i) && notes_.at(i).reading.status != Status::Dirty)
       notes_.at(i).reading.status = Status::Pending;
 }
+void ScaleTriadAdapting::rememberTriads()
+{
+  const auto cfg = config();
+  std::array<std::optional<Id>, 12> held{};
+  uint16_t mask = 0;
+  for (const auto &[i, n] : notes_)
+    if (!n.off && n.reading.status != Status::Dirty)
+    {
+      auto &oldest = held[n.key];
+      if (!oldest || std::make_pair(n.on, i) <
+                         std::make_pair(notes_.at(*oldest).on, *oldest))
+        oldest = i;
+      mask |= 1 << n.key;
+    }
+  // Releasing an octave doubling does not break a still-sounding triad.
+  for (auto &t : triads_)
+    for (size_t j = 0; j < t.notes.size(); ++j)
+    {
+      const auto &n = notes_.at(t.notes[j]);
+      if (n.off && held[n.key] && cfg.valueForKey[n.key] == t.values[j])
+      {
+        t.notes[j] = *held[n.key];
+        t.since = std::max(t.since, notes_.at(t.notes[j]).on);
+      }
+    }
+  // Keep a released triad only if its exact reading sounded together for 70ms
+  // and at least one of those same attacks is still held with that reading.
+  triads_.erase(std::remove_if(triads_.begin(), triads_.end(), [&](const auto &t) {
+                  double end = time_;
+                  bool held = false;
+                  for (size_t j = 0; j < t.notes.size(); ++j)
+                  {
+                    const auto &n = notes_.at(t.notes[j]);
+                    if (n.reading.status == Status::Dirty)
+                      return true;
+                    if (n.off)
+                      end = std::min(end, *n.off);
+                    else
+                    {
+                      held = true;
+                      if (cfg.valueForKey[n.key] != t.values[j])
+                        return true;
+                    }
+                  }
+                  const bool released = std::any_of(t.notes.begin(), t.notes.end(),
+                      [&](Id i) { return notes_.at(i).off.has_value(); });
+                  return !held || (released && end - t.since < verificationMs);
+                }), triads_.end());
+
+  // Use the oldest held occurrence of each class: octave doublings neither
+  // multiply the evidence nor let a restruck key inherit the old attack.
+  for (const auto &t : triads(mask))
+    if (triadsFit(cfg, {t}))
+    {
+      TriadEvidence evidence{{*held[t.root], *held[t.third], *held[t.fifth]},
+                             {cfg.valueForKey[t.root], cfg.valueForKey[t.third],
+                              cfg.valueForKey[t.fifth]}, time_};
+      if (std::none_of(triads_.begin(), triads_.end(), [&](const auto &old) {
+            return old.notes == evidence.notes && old.values == evidence.values;
+          }))
+        triads_.push_back(evidence);
+    }
+}
+void ScaleTriadAdapting::acquireTriadPivots()
+{
+  rememberTriads();
+  for (const auto &t : triads_)
+  {
+    if (std::none_of(t.notes.begin(), t.notes.end(),
+                     [&](Id i) { return notes_.at(i).off.has_value(); }))
+      continue; // A fully held triad can still be reinterpreted by new evidence.
+    for (size_t j = 0; j < t.notes.size(); ++j)
+    {
+      auto &n = notes_.at(t.notes[j]);
+      if (!n.off)
+      {
+        n.reading = {Status::Confirmed, t.values[j], {}};
+        triadPending_.erase(n.id);
+      }
+    }
+  }
+  triads_.erase(std::remove_if(triads_.begin(), triads_.end(), [&](const auto &t) {
+                  return std::any_of(t.notes.begin(), t.notes.end(),
+                      [&](Id i) { return notes_.at(i).off.has_value(); });
+                }), triads_.end());
+}
 void ScaleTriadAdapting::evaluate(Id trigger)
 {
   Ids cohort{trigger};
@@ -398,6 +490,7 @@ void ScaleTriadAdapting::advance(double time)
     checkFirst();
   }
   time_ = time;
+  rememberTriads();
   prune();
 }
 void ScaleTriadAdapting::checkFirst()
@@ -434,6 +527,7 @@ void ScaleTriadAdapting::checkFirst()
   stable_ = tx.before.stable;
   episode_ = tx.before.episode;
   triadPending_ = tx.before.triadPending;
+  triads_ = tx.before.triads;
   for (auto &[i, n] : notes_)
   {
     if (n.reading.status == Status::Dirty)
@@ -474,6 +568,8 @@ void ScaleTriadAdapting::prune()
       keep.insert(*id);
   if (episode_)
     keep.insert(episode_->anchor);
+  for (const auto &t : triads_)
+    keep.insert(t.notes.begin(), t.notes.end());
   for (const auto &tx : transactions_)
   {
     for (const auto &[i, r] : tx.before.readings)
