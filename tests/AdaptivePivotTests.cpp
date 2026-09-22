@@ -1,5 +1,6 @@
 #include "tuning/TuningController.h"
 #include "tuning/TuningAlgorithms.h"
+#include "tuning/HarmonicCostAdapting.h"
 #include "TuningCenterFinder.h"
 #include "midi/MidiController.h"
 #include "IMidiOut.h"
@@ -68,6 +69,7 @@ struct Session
   int divisions;
   Session(int edo = 31, int threshold = 3) : divisions(edo)
   {
+    controller.setUseScaleTriadAdapting(false);
     controller.setEdoIndex(edoIndex(edo));
     controller.selectTuningCenter(0);
     controller.setAdaptingEnabled(true);
@@ -149,7 +151,7 @@ struct Session
   }
 };
 
-using Score = std::tuple<int, int, std::array<int8_t, 12>>;
+using Score = std::tuple<int, int, std::array<int, 12>>;
 Score score(const Config& config, const Config& reference, int root, bool minor)
 {
   int chordDistance = 0, total = 0;
@@ -249,7 +251,7 @@ void runHarmonyInterpretationTests()
       for (int root = 0; root < 12; ++root)
         for (auto type : {Chord::typeDom7, Chord::typeDom7f5, Chord::typeF5, Chord::typeDim7, Chord::typeAug})
         {
-          const auto& reference = edo.getConfig(static_cast<int8_t>(center));
+          const auto& reference = edo.getConfig(static_cast<int>(center));
           std::vector<Reading> readings;
           if (type == Chord::typeDom7)
             readings = {{root, type, false, {4, 1, -2}}, {root, Chord::typeAug6th, false, {4, 1, 10}}};
@@ -261,7 +263,7 @@ void runHarmonyInterpretationTests()
             for (int shift = 0; shift < 12; shift += type == Chord::typeDim7 ? 3 : 4)
               readings.push_back({(root + shift) % 12, type, false,
                 type == Chord::typeDim7 ? std::vector<int>{-3, -6, -9} : std::vector<int>{4, 8}});
-          using OracleScore = std::tuple<int, int, std::array<int8_t, 12>, int, int>;
+          using OracleScore = std::tuple<int, int, std::array<int, 12>, int, int>;
           OracleScore bestScore;
           const Config* expected = nullptr;
           Reading bestReading{};
@@ -291,7 +293,7 @@ void runHarmonyInterpretationTests()
             };
             consider(reference);
             for (int next = edo.minValue; next <= edo.maxValue; ++next)
-              consider(edo.getConfig(static_cast<int8_t>(next)));
+              consider(edo.getConfig(static_cast<int>(next)));
           }
           Chord actualChord = chord(type, root);
           const auto* actual = FindClosestChordConfig(actualChord, edo, reference);
@@ -307,10 +309,10 @@ void runHarmonyInterpretationTests()
   for (const auto& edo : kNtetMappings)
     for (int center = edo.minValue; center <= edo.maxValue; ++center)
     {
-      const auto& reference = edo.getConfig(static_cast<int8_t>(center));
+      const auto& reference = edo.getConfig(static_cast<int>(center));
       Config relabelled = reference;
       relabelled.tuningCenter = Config::invalid;
-      int8_t tonicA = Config::invalid, tonicB = Config::invalid;
+      int tonicA = Config::invalid, tonicB = Config::invalid;
       bool minorA = false, minorB = false;
       const auto* a = FindClosestScaleConfig(edo, reference, (1 << 4) | (1 << 6) | (1 << 8), 1 << 8, 0, tonicA, minorA);
       const auto* b = FindClosestScaleConfig(edo, relabelled, (1 << 4) | (1 << 6) | (1 << 8), 1 << 8, 0, tonicB, minorB);
@@ -394,6 +396,8 @@ void runHarmonyInterpretationTests()
     << " center-independent melodic cases, previous-chord context and real MIDI sequences.\n";
 }
 
+
+
 void runAdaptiveWindowTests(const QString& temporarySettingsFile)
 {
   QSettings settings(temporarySettingsFile, QSettings::IniFormat);
@@ -419,7 +423,7 @@ void runAdaptiveWindowTests(const QString& temporarySettingsFile)
     for (int center = mapping.minValue; center <= mapping.maxValue; ++center)
       for (bool minor : {false, true})
       {
-        const auto& reference = mapping.getConfig(static_cast<int8_t>(center));
+        const auto& reference = mapping.getConfig(static_cast<int>(center));
         const int root = minor ? 9 : 4;
         Chord chord;
         chord.root_ = chord.bass_ = root;
@@ -432,7 +436,7 @@ void runAdaptiveWindowTests(const QString& temporarySettingsFile)
         };
         consider(reference);
         for (int next = mapping.minValue; next <= mapping.maxValue; ++next)
-          consider(mapping.getConfig(static_cast<int8_t>(next)));
+          consider(mapping.getConfig(static_cast<int>(next)));
         const auto* actual = FindClosestChordConfig(chord, mapping, reference);
         check(bool(actual) == bool(expected), "Harmonic search candidate completeness");
         if (actual) check(actual->valueForKey == expected->valueForKey, "Independent minimum harmonic distance oracle");

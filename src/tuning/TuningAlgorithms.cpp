@@ -1,3 +1,4 @@
+#include "../CentsUtilities.hpp"
 #include "TuningAlgorithms.h"
 
 #include "../Chords.h"
@@ -14,7 +15,7 @@ namespace
 {
 
 bool pressedMaskContainsFifth(
-  uint16_t pressedKeyMask, int16_t value, const Config& config)
+  uint16_t pressedKeyMask, int value, const Config& config)
 {
   for (int key = 0; key < 12; ++key)
     if (config.valueForKey[key] == value && hasKey12(pressedKeyMask, key))
@@ -49,11 +50,11 @@ std::optional<KeyChoice> inferKeyFromDominantSignature(
       if ((b - a) != 6)
         continue;
 
-      const int8_t lowerValue = config.valueForKey[a];
-      const int8_t upperValue = config.valueForKey[b];
-      const int8_t difference = upperValue - lowerValue;
+      const int lowerValue = config.valueForKey[a];
+      const int upperValue = config.valueForKey[b];
+      const int difference = upperValue - lowerValue;
 
-      int8_t majorKeyTonic = 0;
+      int majorKeyTonic = 0;
 
       if (difference == -6)
       {
@@ -68,8 +69,8 @@ std::optional<KeyChoice> inferKeyFromDominantSignature(
         continue;
       }
 
-      const int8_t relativeMinorTonic = majorKeyTonic + 3;
-      const int8_t relativeMinorLeadingTone =
+      const int relativeMinorTonic = majorKeyTonic + 3;
+      const int relativeMinorLeadingTone =
         relativeMinorTonic + 5;
 
       if (pressedMaskContainsFifth(
@@ -87,23 +88,23 @@ std::optional<KeyChoice> inferKeyFromDominantSignature(
 }
 
 bool isKeyCompatibleWithTuningCenter(
-  int8_t tuningCenter,
-  int8_t keyTonic,
+  int tuningCenter,
+  int keyTonic,
   bool isMinor)
 {
   const KeyChoice candidates[9] =
   {
     {tuningCenter,                          false},
     {tuningCenter,                          true},
-    {static_cast<int8_t>(tuningCenter - 3), false},
+    {static_cast<int>(tuningCenter - 3), false},
 
-    {static_cast<int8_t>(tuningCenter + 1), false},
-    {static_cast<int8_t>(tuningCenter + 1), true},
-    {static_cast<int8_t>(tuningCenter - 2), false},
+    {static_cast<int>(tuningCenter + 1), false},
+    {static_cast<int>(tuningCenter + 1), true},
+    {static_cast<int>(tuningCenter - 2), false},
 
-    {static_cast<int8_t>(tuningCenter - 1), false},
-    {static_cast<int8_t>(tuningCenter - 1), true},
-    {static_cast<int8_t>(tuningCenter - 4), false}
+    {static_cast<int>(tuningCenter - 1), false},
+    {static_cast<int>(tuningCenter - 1), true},
+    {static_cast<int>(tuningCenter - 4), false}
   };
 
   for (const auto& candidate : candidates)
@@ -156,7 +157,7 @@ ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes)
 {
   struct Candidate
   {
-    int16_t root = 0;
+    int root = 0;
     ChordStructure structure = ChordStructure::None;
     uint8_t holes = 0;
     int holeCost = 0;
@@ -173,7 +174,7 @@ ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes)
   struct RootMap
   {
     uint8_t degree7 = 0;
-    int16_t value5 = 0;
+    int value5 = 0;
   };
 
   std::vector<RootMap> roots;
@@ -238,7 +239,7 @@ ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes)
           return r.value5;
       }
 
-      return int16_t{ 0 };
+      return int{ 0 };
     };
 
   Candidate bestCandidate;
@@ -251,7 +252,7 @@ ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes)
         if (!bitAtRepeatedBitmap(x))
           continue;
 
-        const int16_t startValue5 = value5ForDegree7(x);
+        const int startValue5 = value5ForDegree7(x);
 
         int ones = 0;
         int holes = 0;
@@ -268,8 +269,8 @@ ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes)
           {
             if (structure == ChordStructure::Quartal)
             {
-              const int16_t expectedValue5 = int16_t(startValue5 - k);
-              const int16_t actualValue5 = value5ForDegree7(degree7);
+              const int expectedValue5 = int(startValue5 - k);
+              const int actualValue5 = value5ForDegree7(degree7);
 
               if (actualValue5 != expectedValue5)
               {
@@ -306,7 +307,7 @@ ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes)
           // Examples:
           //   G-C-F       -> root C
           //   B-E-A-D-G   -> root E
-          c.root = int16_t(startValue5 - 1);
+          c.root = int(startValue5 - 1);
         }
         else
         {
@@ -344,9 +345,9 @@ ChordRootAnalysis inferChordRootByStack(const std::vector<ActiveNote>& notes)
 
 const Config& configForTuningCenter(
   const NtetMapping& mapping,
-  int8_t tuningCenter)
+  int tuningCenter)
 {
-  const int8_t normalizedCenter =
+  const int normalizedCenter =
     wrapFifthsToMappingRange(tuningCenter, mapping);
 
   return mapping.getConfig(normalizedCenter);
@@ -354,14 +355,14 @@ const Config& configForTuningCenter(
 
 const Config* findConfigByValues(
   const NtetMapping& mapping,
-  const std::array<int8_t, 12>& values)
+  const std::array<int, 12>& values)
 {
   for (int center = mapping.minValue;
        center <= mapping.maxValue;
        ++center)
   {
     const Config& config =
-      mapping.getConfig(static_cast<int8_t>(center));
+      mapping.getConfig(static_cast<int>(center));
 
     if (config.valueForKey == values)
       return &config;
@@ -411,15 +412,14 @@ std::optional<double> findGlobalOffsetCents(
 {
   constexpr double limit = 99.0;
 
-  double lowerBound = -1e9;
-  double upperBound = 1e9;
+  // Keep the common offset within the MIDI coarse/fine tuning range.
+  // Relative mappings may travel beyond an octave, unlike the legacy pool.
+  double lowerBound = -6300.0;
+  double upperBound = 6300.0;
 
   for (int key = 0; key < 12; ++key)
   {
-    const double rawOffset = rawOffsetForKey(
-      key,
-      config.valueForKey[key],
-      mapping);
+    const double rawOffset = keyboardRawOffset(key, config, mapping.N, mapping.fifthStep, preferredOffset);
 
     lowerBound = std::max(
       lowerBound,
@@ -439,7 +439,7 @@ std::optional<double> findGlobalOffsetCents(
     upperBound);
 }
 
-std::optional<int8_t> spellingForPitchStep(
+std::optional<int> spellingForPitchStep(
   int pitchStep,
   const Config& config,
   const NtetMapping& mapping)
@@ -450,12 +450,9 @@ std::optional<int8_t> spellingForPitchStep(
   pitchStep = mod(pitchStep, mapping.N);
 
   // Conserva la grafia esatta già presente nella configurazione.
-  for (const int8_t value : config.valueForKey)
+  for (const int value : config.valueForKey)
   {
-    if (value < kConfigMaskMin || value > kConfigMaskMax)
-      continue;
-
-    if (mod(value * mapping.fifthStep, mapping.N)
+    if (mod(mod(value, mapping.N) * mapping.fifthStep, mapping.N)
       == pitchStep)
     {
       return value;
@@ -467,6 +464,12 @@ std::optional<int8_t> spellingForPitchStep(
       ? config.tuningCenter
       : 0;
 
+  if (config.relativeKeyboard)
+  {
+    const int residue = mod(pitchStep * modInverse(mapping.fifthStep, mapping.N), mapping.N);
+    const int lower = referenceValue - mod(referenceValue - residue, mapping.N);
+    return referenceValue - lower <= lower + mapping.N - referenceValue ? lower : lower + mapping.N;
+  }
   int bestValue = 0;
   int bestDistance = std::numeric_limits<int>::max();
   bool found = false;
@@ -495,7 +498,7 @@ std::optional<int8_t> spellingForPitchStep(
   if (!found)
     return std::nullopt;
 
-  return static_cast<int8_t>(bestValue);
+  return static_cast<int>(bestValue);
 }
 
 bool isValueAllowedForKey(
@@ -510,6 +513,21 @@ bool isValueAllowedForKey(
   if (keyIndex < 0 || keyIndex >= 12)
     return false;
 
+  if (config.relativeKeyboard)
+  {
+    Config candidate = config;
+    candidate.valueForKey[keyIndex] = value;
+    const double oldCents = 100.0*keyIndex + keyboardRawOffset(keyIndex, config, mapping.N, mapping.fifthStep, globalOffsetCents);
+    const double newCents = 100.0*keyIndex + keyboardRawOffset(keyIndex, candidate, mapping.N, mapping.fifthStep, globalOffsetCents);
+    if (std::abs(newCents-oldCents) > 1200.0/mapping.N + 1e-7) return false;
+    for (int key=0;key<12;++key)
+    {
+      const double raw = keyboardRawOffset(key,candidate,mapping.N,mapping.fifthStep,globalOffsetCents);
+      if (raw-globalOffsetCents < -99 || raw-globalOffsetCents > 99) return false;
+      if (key && 100*key+raw <= 100*(key-1)+keyboardRawOffset(key-1,candidate,mapping.N,mapping.fifthStep,globalOffsetCents)) return false;
+    }
+    return true;
+  }
   if (value < kConfigMaskMin || value > kConfigMaskMax)
     return false;
 
@@ -576,7 +594,7 @@ bool isValueAllowedForKey(
   return true;
 }
 
-std::optional<int8_t> steppedValueForKey(
+std::optional<int> steppedValueForKey(
   int keyIndex,
   int direction,
   const Config& config,
@@ -592,8 +610,8 @@ std::optional<int8_t> steppedValueForKey(
   const int currentValue =
     config.valueForKey[keyIndex];
 
-  if (currentValue < kConfigMaskMin
-    || currentValue > kConfigMaskMax)
+  if (!config.relativeKeyboard && (currentValue < kConfigMaskMin
+    || currentValue > kConfigMaskMax))
   {
     return std::nullopt;
   }

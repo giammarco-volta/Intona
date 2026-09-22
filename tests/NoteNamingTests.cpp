@@ -15,6 +15,7 @@
 using namespace Intona::Tuning;
 
 void runKeyboardMappingTests(const QString& temporarySettingsFile);
+void runHarmonicCostTests();
 void runAdaptiveWindowTests(const QString& temporarySettingsFile);
 
 static void require(bool condition, const char* message)
@@ -152,6 +153,7 @@ int main(int argc, char** argv)
     require(multipleSteps, "General EDO repeated modifiers");
 
     runAdaptiveWindowTests(probe.fileName());
+    runHarmonicCostTests();
     runKeyboardMappingTests(probe.fileName());
 
     MidiController midi;
@@ -244,15 +246,15 @@ int main(int argc, char** argv)
     QObject::connect(&thread, &QThread::finished, worker, &QObject::deleteLater);
     thread.start();
     model.setNoteNamingMode(1);
-    model.setDirtyNoteThresholdMs(150);
+    model.setUseScaleTriadAdapting(true);
     QElapsedTimer timer;
     timer.start();
-    while ((model.noteNamingMode() != 1 || model.dirtyNoteThresholdMs() != 150) && timer.elapsed() < 3000)
+    while ((model.noteNamingMode() != 1 || !model.useScaleTriadAdapting()) && timer.elapsed() < 3000)
     {
       QCoreApplication::processEvents();
       QThread::msleep(1);
     }
-    const bool modelUpdated = model.noteNamingMode() == 1 && model.dirtyNoteThresholdMs() == 150;
+    const bool modelUpdated = model.noteNamingMode() == 1 && model.useScaleTriadAdapting();
     thread.quit();
     thread.wait();
     require(modelUpdated, "Queued view model update");

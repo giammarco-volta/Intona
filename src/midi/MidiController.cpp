@@ -382,6 +382,14 @@ void MidiController::installMidiInCallback()
   midiIn_->setCallback(
     [this](const MidiInEvent& event)
     {
+      // Keep the backend timestamp, also for CCs: interpreter state may still
+      // carry the timestamp of its last note. File I/O happens in the observer.
+      const int rawStatus = event.message(), rawData1 = event.data1,
+        rawData2 = event.data2, rawChannel = event.channel() + 1;
+      const quint32 rawTime = event.timeMs;
+      QMetaObject::invokeMethod(this, [this, rawStatus, rawData1, rawData2, rawTime, rawChannel]() {
+        emit midiInputObserved(rawStatus, rawData1, rawData2, rawTime, rawChannel);
+      }, Qt::QueuedConnection);
       const auto state = midiIn_->getState();
 
       if (state.type == EventType::noteOn)

@@ -5,10 +5,16 @@
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QThread>
+#include <QSettings>
+#include <QTemporaryDir>
+#include <QTimer>
+#include <QUuid>
+#include <QDebug>
 
 #include "ManualDocumentParser.h"
 #include "About.h"
 #include "midi/MidiController.h"
+#include "midi/MidiEventRecorder.h"
 #include "midi/MidiViewModel.h"
 #include "tuning/TuningController.h"
 #include "tuning/TuningViewModel.h"
@@ -57,6 +63,24 @@ static void enableKeepScreenOn()
 int main(int argc, char** argv)
 {
   QGuiApplication app(argc, argv);
+  const bool startupCheck = app.arguments().contains(QStringLiteral("--startup-check"));
+  std::unique_ptr<QTemporaryDir> startupSettings;
+  if (startupCheck)
+  {
+    startupSettings = std::make_unique<QTemporaryDir>();
+    if (!startupSettings->isValid()) return 2;
+    QSettings::setDefaultFormat(QSettings::IniFormat);
+    QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, startupSettings->path());
+    QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, startupSettings->path());
+    QSettings settings("NaadaLab", "Intona");
+    // Enumerate the real backend, but never auto-select/open a hardware port.
+    const QString unavailablePort = QStringLiteral("Intona startup check ")
+      + QUuid::createUuid().toString();
+    settings.setValue("midi/inPortName", unavailablePort);
+    settings.setValue("midi/outPortName", unavailablePort);
+    settings.sync();
+    if (settings.status() != QSettings::NoError) return 2;
+  }
   app.setWindowIcon(QIcon(QStringLiteral(":/icons/Intona.svg")));
   QQuickStyle::setStyle("Material");
 
@@ -70,6 +94,32 @@ int main(int argc, char** argv)
   MidiViewModel midiViewModel(midiWorker);
   Intona::Tuning::TuningViewModel tuningViewModel(
     tuningWorker);
+
+  MidiEventRecorder performanceRecorder;
+  QObject::connect(midiWorker, &MidiController::midiInputObserved,
+    &performanceRecorder, &MidiEventRecorder::recordInput, Qt::QueuedConnection);
+  // UI snapshots are contextual annotations, not timing measurements. They
+  // may coalesce worker updates; original input events are recorded separately.
+  const auto updateRecordingContext = [&]() {
+    performanceRecorder.setContext({
+      {"midi_input", midiViewModel.midiInPort()},
+      {"midi_channel", midiViewModel.midiInChannel()},
+      {"edo", tuningViewModel.edo()},
+      {"tuning_center", tuningViewModel.tuningCenter()},
+      {"key_values", tuningViewModel.keyValues()},
+      {"rt_adapting", tuningViewModel.adaptingEnabled()},
+      {"scale_triad_mode", tuningViewModel.useScaleTriadAdapting()},
+      {"scale_verification_ms", 70},
+      {"adaptive_algorithm", tuningViewModel.useScaleTriadAdapting()
+        ? "scales_triads_v1" : "legacy_chords_melody"}});
+  };
+  QObject::connect(&tuningViewModel, &Intona::Tuning::TuningViewModel::tuningStateChanged,
+    &performanceRecorder, updateRecordingContext);
+  QObject::connect(&midiViewModel, &MidiViewModel::midiInPortChanged,
+    &performanceRecorder, updateRecordingContext);
+  QObject::connect(&midiViewModel, &MidiViewModel::midiInChannelChanged,
+    &performanceRecorder, updateRecordingContext);
+  updateRecordingContext();
 
   midiWorker->moveToThread(&midiThread);
   tuningWorker->moveToThread(&midiThread);
@@ -104,6 +154,9 @@ int main(int argc, char** argv)
     tuningWorker,
     &QObject::deleteLater);
 
+  bool startupMidiReady = false;
+  QObject::connect(&midiThread, &QThread::started, &app,
+    [&startupMidiReady]() { startupMidiReady = true; });
   midiThread.start(QThread::TimeCriticalPriority);
 
   const QVariantList userManualBlocks =
@@ -138,6 +191,7 @@ int main(int argc, char** argv)
   engine.rootContext()->setContextProperty("MidiController", &midiViewModel);
 
   engine.rootContext()->setContextProperty("TuningController", &tuningViewModel);
+  engine.rootContext()->setContextProperty("PerformanceRecorder", &performanceRecorder);
 
   engine.rootContext()->setContextProperty("DebugBuild", debugBuild);
 
@@ -150,6 +204,16 @@ int main(int argc, char** argv)
     });
 #endif
 
+  if (startupCheck)
+  {
+    QTimer::singleShot(1000, &app, [&]()
+      {
+        const bool ready = startupMidiReady && !engine.rootObjects().isEmpty();
+        if (ready) qInfo("PASS: application startup, MIDI enumeration and QML loading.");
+        else qCritical("FAIL: application startup did not complete.");
+        app.exit(ready ? 0 : 2);
+      });
+  }
   const int result = app.exec();
 
   QMetaObject::invokeMethod(

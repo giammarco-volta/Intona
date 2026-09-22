@@ -1,6 +1,15 @@
 cmake_minimum_required(VERSION 3.21)
 project(Intona LANGUAGES CXX)
 
+# Ninja must parse the same /showIncludes language on every build, including
+# builds started outside Visual Studio. Otherwise header edits can silently
+# leave incompatible object files in the executable.
+if(MSVC AND CMAKE_GENERATOR MATCHES "Ninja")
+  set(CMAKE_CL_SHOWINCLUDES_PREFIX "Note: including file: ")
+  list(PREPEND CMAKE_CXX_COMPILER_LAUNCHER
+    "${CMAKE_COMMAND}" "-E" "env" "VSLANG=1033")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
@@ -35,6 +44,10 @@ set(INTONA_SOURCES
   src/StringUtilities.hpp
   src/tuning/NoteNaming.h
   src/tuning/KeyboardMapping.h
+  src/tuning/HarmonicCostAdapting.h
+  src/tuning/HarmonicCostAdapting.cpp
+  src/tuning/ScaleTriadAdapting.h
+  src/tuning/ScaleTriadAdapting.cpp
   src/Chords.h
   src/Chords.cpp
   src/ChordRecognizer.h
@@ -56,6 +69,8 @@ set(INTONA_SOURCES
   src/midi/IntonaMidiConfiguration.h
   src/midi/MidiController.h
   src/midi/MidiController.cpp
+  src/midi/MidiEventRecorder.h
+  src/midi/MidiEventRecorder.cpp
   src/midi/MidiViewModel.h
   src/midi/MidiViewModel.cpp
 )
@@ -174,13 +189,37 @@ if(INTONA_BUILD_TESTS)
   enable_testing()
   set(INTONA_TEST_SOURCES ${INTONA_SOURCES})
   list(REMOVE_ITEM INTONA_TEST_SOURCES src/main.cpp)
-  add_executable(IntonaNamingTests tests/NoteNamingTests.cpp tests/KeyboardMappingTests.cpp tests/AdaptivePivotTests.cpp ${INTONA_TEST_SOURCES})
+  add_executable(IntonaNamingTests tests/NoteNamingTests.cpp tests/KeyboardMappingTests.cpp tests/AdaptivePivotTests.cpp tests/HarmonicCostTests.cpp ${INTONA_TEST_SOURCES})
   target_include_directories(IntonaNamingTests PRIVATE src)
   target_link_libraries(IntonaNamingTests PRIVATE NaadaLab::Midi Qt6::Core)
   add_test(NAME IntonaNoteNaming COMMAND IntonaNamingTests)
-  add_executable(IntonaSettingsPageTests tests/SettingsPageTests.cpp)
+  add_executable(IntonaScaleTriadTests tests/ScaleTriadTests.cpp ${INTONA_TEST_SOURCES})
+  target_include_directories(IntonaScaleTriadTests PRIVATE src)
+  target_compile_definitions(IntonaScaleTriadTests PRIVATE INTONA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
+  target_link_libraries(IntonaScaleTriadTests PRIVATE NaadaLab::Midi Qt6::Core)
+  add_test(NAME IntonaScaleTriads COMMAND IntonaScaleTriadTests)
+  add_executable(IntonaMidiRecordingTests tests/MidiRecordingTests.cpp
+    src/midi/MidiEventRecorder.h src/midi/MidiEventRecorder.cpp)
+  target_include_directories(IntonaMidiRecordingTests PRIVATE src)
+  target_link_libraries(IntonaMidiRecordingTests PRIVATE Qt6::Core)
+  add_test(NAME IntonaMidiRecording COMMAND IntonaMidiRecordingTests)
+  add_executable(IntonaSettingsPageTests tests/SettingsPageTests.cpp
+    src/midi/MidiEventRecorder.h src/midi/MidiEventRecorder.cpp)
+  target_include_directories(IntonaSettingsPageTests PRIVATE src)
   target_compile_definitions(IntonaSettingsPageTests PRIVATE
     INTONA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
   target_link_libraries(IntonaSettingsPageTests PRIVATE NaadaLab::Ui Qt6::QuickControls2)
   add_test(NAME IntonaSettingsPage COMMAND IntonaSettingsPageTests)
+  add_test(NAME IntonaStartup COMMAND Intona --startup-check -platform offscreen)
+  set_tests_properties(IntonaStartup PROPERTIES TIMEOUT 20)
+  # A deployed application folder may contain only the Windows platform plugin.
+  # Tests also need the SDK's offscreen plugin and complete QML module set.
+  if(TARGET Qt6::qmake AND TARGET Qt6::QOffscreenIntegrationPlugin)
+    get_target_property(INTONA_QMAKE_EXECUTABLE Qt6::qmake IMPORTED_LOCATION)
+    execute_process(COMMAND "${INTONA_QMAKE_EXECUTABLE}" -query QT_INSTALL_QML
+      OUTPUT_VARIABLE INTONA_QT_QML_DIR OUTPUT_STRIP_TRAILING_WHITESPACE
+      COMMAND_ERROR_IS_FATAL ANY)
+    set_tests_properties(IntonaSettingsPage IntonaStartup PROPERTIES ENVIRONMENT
+      "QT_QPA_PLATFORM_PLUGIN_PATH=$<TARGET_FILE_DIR:Qt6::QOffscreenIntegrationPlugin>;QML_IMPORT_PATH=${INTONA_QT_QML_DIR};QT_FORCE_STDERR_LOGGING=1")
+  endif()
 endif()

@@ -12,8 +12,8 @@ class TuningViewModel final : public QObject
 {
   Q_OBJECT
 
-  Q_PROPERTY(int dirtyNoteThresholdMs READ dirtyNoteThresholdMs
-             WRITE setDirtyNoteThresholdMs NOTIFY tuningStateChanged)
+  Q_PROPERTY(bool useScaleTriadAdapting READ useScaleTriadAdapting
+             WRITE setUseScaleTriadAdapting NOTIFY tuningStateChanged)
 
   Q_PROPERTY(int noteNamingMode READ noteNamingMode WRITE setNoteNamingMode NOTIFY tuningStateChanged)
   Q_PROPERTY(int edoIndex READ edoIndex WRITE setEdoIndex NOTIFY tuningStateChanged)
@@ -40,8 +40,8 @@ public:
     TuningController* worker,
     QObject* parent = nullptr);
 
-  int dirtyNoteThresholdMs() const { return state_.dirtyNoteThresholdMs; }
-  void setDirtyNoteThresholdMs(int milliseconds);
+  bool useScaleTriadAdapting() const { return state_.useScaleTriadAdapting; }
+  void setUseScaleTriadAdapting(bool enabled);
 
   int noteNamingMode() const { return state_.noteNamingMode; }
   void setNoteNamingMode(int mode);

@@ -10,7 +10,7 @@ Item {
     property int edo: 12
     property int edoIndex: -1
     property var availableEdos: []
-    property int tuningCenter: -128
+    property int tuningCenter: -2147483648
     property string tuningCenterName: ""
     property var keyNames: []
     property var canRaiseKeys: []

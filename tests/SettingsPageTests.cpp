@@ -4,6 +4,8 @@
 #include <QQmlContext>
 #include <QQmlPropertyMap>
 #include <QQuickWindow>
+#include <QQuickItem>
+#include <cmath>
 #include <QQuickStyle>
 #include <QElapsedTimer>
 #include <QThread>
@@ -12,6 +14,8 @@
 #include <QFontDatabase>
 #include <iostream>
 #include <memory>
+#include <QTemporaryDir>
+#include "midi/MidiEventRecorder.h"
 
 static void settle()
 {
@@ -37,9 +41,12 @@ int main(int argc, char** argv)
   QQuickStyle::setStyle("Material");
   QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
   QQmlEngine engine;
+  QTemporaryDir recordingDirectory;
+  MidiEventRecorder recorder(nullptr, recordingDirectory.path());
+  engine.rootContext()->setContextProperty("PerformanceRecorder", &recorder);
   QQmlPropertyMap settings;
   settings.insert("noteNamingMode", 0);
-  settings.insert("dirtyNoteThresholdMs", 100);
+  settings.insert("useScaleTriadAdapting", false);
   engine.rootContext()->setContextProperty("TuningController", &settings);
   QQmlComponent component(&engine);
   const auto pages = QUrl::fromLocalFile(QStringLiteral(INTONA_SOURCE_DIR "/src/qml/pages")).toString();
@@ -72,14 +79,26 @@ ApplicationWindow {
     return 1;
   }
   auto* threshold = root->findChild<QObject*>("dirtyNoteThresholdSelector");
-  if (!threshold || threshold->property("value").toInt() != 100) return 8;
-  threshold->setProperty("value", 150);
-  QMetaObject::invokeMethod(threshold, "valueModified");
-  if (settings.value("dirtyNoteThresholdMs").toInt() != 150) return 9;
-  settings.insert("dirtyNoteThresholdMs", 75);
+  auto* recordButton = root->findChild<QObject*>("recordingToggle");
+  auto* recordLabel = root->findChild<QObject*>("recordingLabel");
+  if (!recordButton || !recordLabel) return 25;
+  recordLabel->setProperty("text", "Bach slow");
+  QMetaObject::invokeMethod(recordButton, "clicked");
+  if (!recorder.recording()) return 26;
+  recorder.recordInput(0x90,60,90,1000,1);
+  recorder.recordInput(0x80,60,0,1125,1);
+  QMetaObject::invokeMethod(recordButton, "clicked");
+  if (recorder.recording() || !QFile::exists(recorder.filePath())) return 27;
+  auto* adapting = root->findChild<QObject*>("scaleTriadAdaptingSelector");
+  if (!adapting || adapting->property("checked").toBool()) return 11;
+  adapting->setProperty("checked", true);
+  QMetaObject::invokeMethod(adapting, "toggled");
+  if (!settings.value("useScaleTriadAdapting").toBool()) return 12;
+  if (threshold || root->findChild<QObject*>("historyDecaySlopeSelector")
+    || root->findChild<QObject*>("historyWindowIntervalsSelector")) return 16;
+  settings.insert("useScaleTriadAdapting", false);
   settle();
-  if (threshold->property("value").toInt() != 75) return 10;
-  settle();
+  if (adapting->property("checked").toBool()) return 13;
   if (selector->property("currentIndex").toInt() != 0)
     return 2;
   QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 1));
@@ -106,6 +125,9 @@ ApplicationWindow {
   if (!screenshotDir.isEmpty()
     && !window->grabWindow().save(screenshotDir + "/settings-mobile.png"))
     return 7;
-  std::cout << "PASS: Settings page loads, naming and duration controls write preferences, external updates preserve bindings, desktop and mobile render.\n";
+  window->resize(360,700);
+  settle();
+  if(!screenshotDir.isEmpty() && !window->grabWindow().save(screenshotDir+"/settings-portrait.png"))return 24;
+  std::cout << "PASS: Settings page loads, obsolete controls are absent, recording is available, naming and algorithm controls write preferences, external updates preserve bindings, desktop and mobile render.\n";
   return 0;
 }

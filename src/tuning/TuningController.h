@@ -5,6 +5,8 @@
 #include "../TuningCenterFinder.h"
 #include "TuningTypes.h"
 #include "NoteNaming.h"
+#include "ScaleTriadAdapting.h"
+#include <QElapsedTimer>
 
 #include <QObject>
 #include <optional>
@@ -20,6 +22,7 @@ namespace Intona::Tuning
 
 struct TuningUiSnapshot
 {
+  bool useScaleTriadAdapting = false;
   int dirtyNoteThresholdMs = 100;
   int noteNamingMode = 0;
   int edoIndex = 0;
@@ -45,6 +48,10 @@ struct TuningUiSnapshot
 class TuningController final : public QObject
 {
   Q_OBJECT
+
+  Q_PROPERTY(bool useScaleTriadAdapting READ useScaleTriadAdapting
+             WRITE setUseScaleTriadAdapting NOTIFY tuningStateChanged)
+
 
   Q_PROPERTY(int dirtyNoteThresholdMs READ dirtyNoteThresholdMs
              WRITE setDirtyNoteThresholdMs NOTIFY tuningStateChanged)
@@ -128,6 +135,10 @@ public:
     MidiController* midiController,
     QObject* parent = nullptr);
 
+  bool useScaleTriadAdapting() const { return useScaleTriadAdapting_; }
+  void setUseScaleTriadAdapting(bool enabled);
+
+
   int dirtyNoteThresholdMs() const { return dirtyNoteThresholdMs_; }
   void setDirtyNoteThresholdMs(int milliseconds);
 
@@ -191,17 +202,30 @@ private:
   int currentPresetIndex_ = -1;
 
   std::vector<ActiveNote> activeNotes_;
-  int8_t currentKeyTonic_ = Config::invalid;
+  int currentKeyTonic_ = Config::invalid;
   bool currentKeyIsMinor_ = false;
-  int8_t currentChordRoot_ = Config::invalid;
+  int currentChordRoot_ = Config::invalid;
   bool currentChordNameValid_ = false;
   QString currentChordSuffix_;
-  int8_t currentChordBass_ = Config::invalid;
+  int currentChordBass_ = Config::invalid;
 
   uint8_t minNoteNumberForAdapting_ = 2;
   ConfigMask pressedMask5_ = 0;
   uint16_t keyPressedMask12_ = 0;
   bool adaptingEnabled_ = true;
+  bool useScaleTriadAdapting_ = false;
+  ScaleTriadAdapting scaleTriads_;
+  QTimer* scaleVerificationTimer_ = nullptr;
+  void scheduleScaleVerification();
+  void verifyScaleEvidence();
+  void applyScaleConfig();
+  void updateScaleDisplay();
+  QElapsedTimer historyClockElapsed_;
+  bool historyClockStarted_ = false;
+  quint32 historyClockStamp_ = 0;
+  double historyClockValue_ = 0;
+  void observeHistoryClock(quint32 stamp);
+  double historyNow() const;
   int dirtyNoteThresholdMs_ = 100;
   QTimer* noteWindowTimer_ = nullptr;
   uint64_t nextNoteGeneration_ = 0;
@@ -243,6 +267,7 @@ private:
   void cancelNoteWindow();
   void confirmNoteWindow();
   void evaluateNoteWindow();
+  void resetAlternativeState();
   void rebuildPressedMasks();
   AdaptiveChoice chooseBestInterpretationAndConfigByChords();
 
@@ -252,7 +277,7 @@ private:
     const NtetMapping& mapping) const;
 
   void recordScaleNote(const ActiveNote& note);
-  const Config* findConfigByScale(int8_t& keyTonic, bool& isMinor);
+  const Config* findConfigByScale(int& keyTonic, bool& isMinor);
 
   QString noteName(int fifths) const;
   void resetScaleData();

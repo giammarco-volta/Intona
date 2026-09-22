@@ -109,7 +109,7 @@ const Config* FindClosestChordConfig(Chord& chord, const NtetMapping& mapping,
   if (chord.IsNull() || chord.root_ >= 12) return nullptr;
   // Every alternative has the same sounding keys. Context precedes distance;
   // pivots remain hard constraints, even when a preferred reading is impossible.
-  using Score = std::tuple<int, int, int, std::array<int8_t, 12>, int, int>;
+  using Score = std::tuple<int, int, int, std::array<int, 12>, int, int>;
   Score bestScore;
   const Config* best = nullptr;
   Chord bestChord = chord;
@@ -132,12 +132,12 @@ const Config* FindClosestChordConfig(Chord& chord, const NtetMapping& mapping,
     };
     consider(reference); // Includes explicit presets/custom mappings.
     for (int center = mapping.minValue; center <= mapping.maxValue; ++center)
-      consider(mapping.getConfig(static_cast<int8_t>(center)));
+      consider(mapping.getConfig(static_cast<int>(center)));
   }
   if (best) chord = bestChord;
   return best;
 }
-const Config* FindConfig(Chord& chord, const std::vector<int8_t>& oldNotes,
+const Config* FindConfig(Chord& chord, const std::vector<int>& oldNotes,
   const NtetMapping& mapping, const Config& current, KeepOldNotes keep)
 {
   uint16_t keys = 0;
@@ -195,10 +195,10 @@ bool FitsScale(const Config& config, int tonicKey, int form)
   return true;
 }
 const Config* FindClosestScaleConfig(const NtetMapping& mapping, const Config& reference,
-  uint16_t melodyKeys, uint16_t latestKeys, uint16_t pivotKeys, int8_t& tonic, bool& minor)
+  uint16_t melodyKeys, uint16_t latestKeys, uint16_t pivotKeys, int& tonic, bool& minor)
 {
   if (popcount(melodyKeys) < 3 || !latestKeys) return nullptr;
-  using Score = std::tuple<int, int, int, std::array<int8_t, 12>, int, int, int>;
+  using Score = std::tuple<int, int, int, std::array<int, 12>, int, int, int>;
   Score bestScore;
   const Config* best = nullptr;
   for (int key = 0; key < 12; ++key)
@@ -223,7 +223,7 @@ const Config* FindClosestScaleConfig(const NtetMapping& mapping, const Config& r
       };
       consider(reference);
       for (int center = mapping.minValue; center <= mapping.maxValue; ++center)
-        consider(mapping.getConfig(static_cast<int8_t>(center)));
+        consider(mapping.getConfig(static_cast<int>(center)));
     }
   return best;
 }

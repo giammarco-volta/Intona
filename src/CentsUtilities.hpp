@@ -26,6 +26,25 @@ inline double standard12TetCentsForKey(int key)
   return double(key) * 100.0;
 }
 
+inline double keyboardRawOffset(int key, const Config& config, int N, int fifthStep, double preferredOffset = 0)
+{
+  const auto step = [&](int value) { return mod(mod(value, N) * fifthStep, N); };
+  const double cents = 1200.0 * step(config.valueForKey[key]) / N;
+  double raw = cents - 100.0 * key;
+  if (config.relativeKeyboard)
+  {
+    const int cStep = step(config.valueForKey[0]);
+    double c = 1200.0 * cStep / N;
+    // Keep the shared octave lift near the established output offset;
+    // crossing the +/-600 boundary must not transpose eleven held notes.
+    c += 1200 * std::round((preferredOffset - c) / 1200);
+    return c + 1200.0 * mod(step(config.valueForKey[key])-cStep,N)/N - 100.0*key;
+  }
+  while (raw <= -600) raw += 1200;
+  while (raw > 600) raw -= 1200;
+  return raw;
+}
+
 //----------------------------------------------------------------------------------------------------------------------------
 inline std::array<double, 12> computeDetuneTable(uint8_t N, uint8_t fifthStep, const Config& config, double globalOffsetCents)
 //----------------------------------------------------------------------------------------------------------------------------
@@ -34,20 +53,7 @@ inline std::array<double, 12> computeDetuneTable(uint8_t N, uint8_t fifthStep, c
 
   for (int key = 0; key < 12; ++key)
   {
-    const int fifthValue = config.valueForKey[key];
-
-    const int ntetStep = fifthValueToNtetStep(fifthValue, fifthStep, N);
-    const double ntetCents = tetStepToCents(ntetStep, N);
-    const double standardCents = standard12TetCentsForKey(key);
-    double detune = ntetCents - standardCents;
-
-    while (detune <= -600.0)
-      detune += 1200.0;
-
-    while (detune > 600.0)
-      detune -= 1200.0;
-
-    detune -= globalOffsetCents;
+    const double detune = keyboardRawOffset(key, config, N, fifthStep, globalOffsetCents) - globalOffsetCents;
 
     detunes[key] = detune;
     assert(detunes[key] >= -99.0 && detunes[key] <= 99.0);

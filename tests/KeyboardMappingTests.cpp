@@ -28,7 +28,7 @@ double distanceToKey(int value, int key, const NtetMapping& mapping)
   return std::abs(std::remainder(cents - 100.0 * key, 1200.0));
 }
 
-auto score(const std::array<int8_t, 12>& values, const NtetMapping& mapping)
+auto score(const std::array<int, 12>& values, const NtetMapping& mapping)
 {
   double total = 0, worst = 0;
   for (int key = 0; key < 12; ++key)
@@ -57,7 +57,7 @@ void verifyConfiguration(const Config& config, const NtetMapping& mapping)
   bool ordered = false;
   for (int start = 0; start < 12; ++start)
   {
-    std::array<int8_t, 12> assignment;
+    std::array<int, 12> assignment;
     for (int key = 0; key < 12; ++key) assignment[key] = selected[(start + key) % 12];
     ordered |= assignment == config.valueForKey;
     const auto [total, worst, c] = score(assignment, mapping);
@@ -104,9 +104,9 @@ void runKeyboardMappingTests(const QString& temporarySettingsFile)
     if (mapping.N == 31) index31 = index;
     for (int center = mapping.minValue; center <= mapping.maxValue; ++center)
     {
-      const Config& config = mapping.getConfig(static_cast<int8_t>(center));
+      const Config& config = mapping.getConfig(static_cast<int>(center));
       verifyConfiguration(config, mapping);
-      check(&config == &configForTuningCenter(mapping, static_cast<int8_t>(center)), "Manual selection must use optimal mapping");
+      check(&config == &configForTuningCenter(mapping, static_cast<int>(center)), "Manual selection must use optimal mapping");
       check(findConfigByValues(mapping, config.valueForKey) == &config, "Config lookup after reordering");
       ++centers;
       changed += config.valueForKey != configPool[center - kConfigPoolMin].valueForKey;
@@ -139,7 +139,7 @@ void runKeyboardMappingTests(const QString& temporarySettingsFile)
         check(TestChordConfig(chord, config) == triad, "Chord matching must use actual root key");
         if (triad)
         {
-          const auto* found = FindConfig(chord, {static_cast<int8_t>(root)}, mapping, config, KeepOldNotes::Yes);
+          const auto* found = FindConfig(chord, {static_cast<int>(root)}, mapping, config, KeepOldNotes::Yes);
           check(found == &config, "Adaptive lookup should retain an already compatible center");
           ++chordChecks;
         }
@@ -180,7 +180,7 @@ void runKeyboardMappingTests(const QString& temporarySettingsFile)
   };
   for (int center = edo31.minValue; center <= edo31.maxValue; ++center)
   {
-    const auto& candidate = edo31.getConfig(static_cast<int8_t>(center));
+    const auto& candidate = edo31.getConfig(static_cast<int>(center));
     if (TestChordConfig(remappedChord, candidate))
       check(harmonicScore(*unrestricted) <= harmonicScore(candidate),
         "Adaptive lookup minimizes harmonic distance rather than center distance");

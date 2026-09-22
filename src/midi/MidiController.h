@@ -95,6 +95,8 @@ public:
   MidiUiSnapshot uiSnapshot() const;
 
 signals:
+  // Original selected-channel input, including notes rejected later by tuning.
+  void midiInputObserved(int status, int data1, int data2, quint32 timeMs, int channel);
   void midiInPortsChanged();
   void midiOutPortsChanged();
 

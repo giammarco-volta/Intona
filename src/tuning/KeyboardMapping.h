@@ -12,8 +12,8 @@ namespace Intona::Tuning
 
 // Keep the selected pitches and their order, choosing only where the octave
 // starts on the keyboard. Scores are in cents * EDO to make ties exact.
-inline std::array<int8_t, 12> closestKeyboardMapping(
-  const std::array<int8_t, 12>& values, int edo, int fifthStep)
+inline std::array<int, 12> closestKeyboardMapping(
+  const std::array<int, 12>& values, int edo, int fifthStep)
 {
   if (edo <= 0)
     return values;
@@ -36,7 +36,7 @@ inline std::array<int8_t, 12> closestKeyboardMapping(
 
   for (int rotation = 0; rotation < 12; ++rotation)
   {
-    std::array<int8_t, 12> candidate;
+    std::array<int, 12> candidate;
     int total = 0;
     int maximum = 0;
     int cDistance = 0;

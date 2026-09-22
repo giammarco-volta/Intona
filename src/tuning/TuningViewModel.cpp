@@ -20,10 +20,10 @@ TuningViewModel::TuningViewModel(
     Qt::DirectConnection);
 }
 
-void TuningViewModel::setDirtyNoteThresholdMs(int milliseconds)
+void TuningViewModel::setUseScaleTriadAdapting(bool enabled)
 {
   QMetaObject::invokeMethod(worker_,
-    [worker = worker_, milliseconds]() { worker->setDirtyNoteThresholdMs(milliseconds); },
+    [worker = worker_, enabled]() { worker->setUseScaleTriadAdapting(enabled); },
     Qt::QueuedConnection);
 }
 

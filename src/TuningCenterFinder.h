@@ -5,7 +5,7 @@
 
 enum class KeepOldNotes : uint8_t { No, Yes };
 
-extern const Config* FindConfig(Chord& chord, const std::vector<int8_t>& oldNotes, const NtetMapping& m, const Config& currentCfg, KeepOldNotes keep);
+extern const Config* FindConfig(Chord& chord, const std::vector<int>& oldNotes, const NtetMapping& m, const Config& currentCfg, KeepOldNotes keep);
 extern bool TestChordConfig(const Chord& chord, const Config& currentCfg);
 extern ConfigMask ChordMask(const Chord& chord, const Config& currentCfg);
 
@@ -31,4 +31,4 @@ bool FitsScale(const Config& config, int tonicKey, int form);
 uint16_t ScaleKeys(int tonicKey, int form);
 const Config* FindClosestScaleConfig(const NtetMapping& mapping, const Config& reference,
   uint16_t melodyKeys, uint16_t latestKeys, uint16_t pivotKeys,
-  int8_t& tonic, bool& minor);
+  int& tonic, bool& minor);

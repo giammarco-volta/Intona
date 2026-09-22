@@ -16,8 +16,8 @@ std::optional<KeyChoice> inferKeyFromDominantSignature(
   const Config& config);
 
 bool isKeyCompatibleWithTuningCenter(
-  int8_t tuningCenter,
-  int8_t keyTonic,
+  int tuningCenter,
+  int keyTonic,
   bool isMinor);
 
 ChordRootAnalysis inferChordRootByStack(
@@ -25,13 +25,13 @@ ChordRootAnalysis inferChordRootByStack(
 
 const Config& configForTuningCenter(
   const NtetMapping& mapping,
-  int8_t tuningCenter);
+  int tuningCenter);
 
 const Config* findConfigByValues(
   const NtetMapping& mapping,
-  const std::array<int8_t, 12>& values);
+  const std::array<int, 12>& values);
 
-std::optional<int8_t> spellingForPitchStep(
+std::optional<int> spellingForPitchStep(
   int pitchStep,
   const Config& config,
   const NtetMapping& mapping);
@@ -43,7 +43,7 @@ bool isValueAllowedForKey(
   const NtetMapping& mapping,
   double globalOffsetCents);
 
-std::optional<int8_t> steppedValueForKey(
+std::optional<int> steppedValueForKey(
   int keyIndex,
   int direction,
   const Config& config,

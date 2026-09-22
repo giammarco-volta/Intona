@@ -5,6 +5,12 @@ Configure with `-DINTONA_BUILD_TESTS=ON`, build, then run
 `ctest --test-dir <build-directory> --output-on-failure`.
 On Windows, put the matching Qt `bin` directory on PATH before running tests.
 
+`IntonaStartup` runs the real application with `--startup-check -platform offscreen`.
+It checks worker initialization, native MIDI enumeration, QML loading and orderly
+shutdown. It uses temporary INI settings and deliberately unavailable selected
+port names, so it neither changes user settings nor opens MIDI devices. Build the
+`Intona` target as well as the test executables before running the full suite.
+
 The test executable uses a temporary INI settings directory and does not open
 MIDI devices. It checks all supported EDOs and tuning centers, preservation of
 pitch and interaction state, the two-accidental limit, nearest-anchor selection,
@@ -50,4 +56,26 @@ verify previous-chord membership, ambiguous membership falling back to distance,
 leading-tone preference, pivot precedence and inversion stability. Melodic tests
 vary only center metadata for all 1126 mappings, then exercise matching preset
 assignments with different centers through complete MIDI sequences. Additional
-sequences verify the E–F#–G# correction and rejected chords leaving no context.
+sequences verify the Eâ€“F#â€“G# correction and rejected chords leaving no context.
+
+Alternative scale/triad adaptation
+---------------------------------
+
+`IntonaScaleTriads` replays 541 independent Python-simulator reference cases at
+four keyboard anchors, including all tested chord attack permutations, 0/10/20 ms
+spacing, progressive revision, conflicting triads, dirty evidence and rollback.
+The fixtures contain only synthetic passages, not user recordings. Optional full
+recording fixtures can be replayed by passing their JSON path to
+`IntonaScaleTriadTests`. They are kept outside the repository.
+
+The same test executable checks actual controller MIDI ordering, immediate sound,
+original velocities and output channels, the Qt 70 ms rollback timer, RT off,
+preference migration and the retained legacy mode. All settings are temporary and
+all MIDI output is injected; no musical devices are opened. Settings-page tests
+verify that the history and threshold controls are absent, the new checkbox binds
+in both directions, recording still works, and desktop/phone layouts load.
+
+The pre-existing HarmonicCostTests retain independent tests of relative keyboard
+geometry and the retired experimental math helpers; those scores no longer select
+runtime tuning. The legacy dirty-note window remains internal to the original
+engine, so its existing timing regression tests continue to run unchanged.

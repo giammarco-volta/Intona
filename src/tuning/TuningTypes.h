@@ -15,15 +15,16 @@ struct RetunedNote
 {
   uint8_t midiNote;
   uint8_t velocity;
-  int8_t oldValue;
-  int8_t newValue;
+  int oldValue;
+  int newValue;
 };
 
 struct TuningPreset
 {
-  std::array<int8_t, 12> values{};
-  int8_t tuningCenter = Config::invalid;
+  std::array<int, 12> values{};
+  int tuningCenter = Config::invalid;
   double globalOffsetCents = 0.0;
+  bool relativeKeyboard = false;
 };
 
 struct ActiveNote
@@ -31,15 +32,16 @@ struct ActiveNote
   uint8_t midiNote;
   uint8_t key;              // 0..11
   uint8_t velocity;
-  int8_t interpretedValue;  // fifth-cycle value, e.g. E = 4, G# = 8
+  int interpretedValue;  // fifth-cycle value, e.g. E = 4, G# = 8
   uint32_t startMs;
   uint64_t generation = 0;
   uint32_t minimumDurationMs = 0;
+  double startTime = 0;
 };
 
 struct KeyChoice
 {
-  int8_t tonic = 0;
+  int tonic = 0;
   bool isMinor = false;
 };
 
@@ -57,21 +59,21 @@ struct AdaptiveChoice
   std::vector<RetunedNote> notesToRetrigger;
   ConfigMask pressedMask5 = 0;
 
-  int8_t keyTonic = Config::invalid;
+  int keyTonic = Config::invalid;
   bool keyIsMinor = false;
 
   bool chordRootValid = false;
-  int8_t chordRoot = 0;
+  int chordRoot = 0;
   ChordStructure chordStructure = ChordStructure::None;
   bool chordNameValid = false;
   QString chordSuffix;
-  int8_t chordBass = Config::invalid;
+  int chordBass = Config::invalid;
 };
 
 struct ChordRootAnalysis
 {
   bool valid = false;
-  int8_t root = 0;
+  int root = 0;
   ChordStructure structure = ChordStructure::None;
   uint8_t holes = 0;
 };
@@ -85,7 +87,7 @@ enum class AfterTouch : uint8_t
 
 struct ScaleKeyScore
 {
-  int8_t tonic = 0;
+  int tonic = 0;
   bool isMinor = false;
   double fast = 0.0;
   double slow = 0.0;
