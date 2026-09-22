@@ -143,11 +143,27 @@ Item {
 
             anchors.fill: parent
 
+            readonly property bool isTuningCenter:
+                modelData.value === root.tuningCenter
+
+            z: isTuningCenter ? 1 : 0
+
             readonly property real angle:
                 -Math.PI / 2
                 + 2 * Math.PI
                     * modelData.pitchStep
                     / Math.max(1, root.edo)
+
+            Rectangle {
+                anchors.centerIn: noteLabel
+                width: Math.max(24, noteLabel.width + 10,
+                                noteLabel.height + 8)
+                height: width
+                radius: width / 2
+                color: SharedUi.Theme.accent
+                visible: entryDelegate.isTuningCenter
+                scale: noteLabel.scale
+            }
 
             Label {
                 id: noteLabel
@@ -162,7 +178,9 @@ Item {
 
                 text: parent.modelData.name
 
-                color: parent.modelData.pressed
+                color: entryDelegate.isTuningCenter
+                       ? "black"
+                       : parent.modelData.pressed
                        ? SharedUi.Theme.success
                        : root.noteDragActive
                          && root.noteDragTargetStep
@@ -276,29 +294,6 @@ Item {
 
                     onCanceled: root.resetNoteDrag()
                 }
-            }
-
-            Rectangle {
-                readonly property real dotRadius:
-                    root.outerRadius + 7
-
-                x: root.centerX
-                   + dotRadius * Math.cos(parent.angle)
-                   - width / 2
-
-                y: root.centerY
-                   + dotRadius * Math.sin(parent.angle)
-                   - height / 2
-
-                width: Math.max(6, root.diameter / 90)
-                height: width
-                radius: width / 2
-
-                visible:
-                    parent.modelData.value
-                    === root.tuningCenter
-
-                color: SharedUi.Theme.accent
             }
 
             Rectangle {
