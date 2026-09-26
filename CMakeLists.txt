@@ -50,6 +50,7 @@ set(INTONA_SOURCES
   src/tuning/ScaleTriadAdapting.cpp
   src/About.h
   
+  src/tuning/MidiControlBinding.h
   src/tuning/TuningTypes.h
   src/tuning/TuningAlgorithms.h
   src/tuning/TuningAlgorithms.cpp

@@ -29,8 +29,12 @@ class TuningViewModel final : public QObject
   Q_PROPERTY(QVariantList presetEntries READ presetEntries NOTIFY tuningStateChanged)
   Q_PROPERTY(int currentPresetIndex READ currentPresetIndex NOTIFY tuningStateChanged)
   Q_PROPERTY(bool adaptingEnabled READ adaptingEnabled WRITE setAdaptingEnabled NOTIFY tuningStateChanged)
-  Q_PROPERTY(QString aftertouchText READ aftertouchText NOTIFY tuningStateChanged)
-  Q_PROPERTY(bool aftertouchEnabled READ aftertouchEnabled NOTIFY tuningStateChanged)
+  Q_PROPERTY(QStringList controlSources READ controlSources CONSTANT)
+  Q_PROPERTY(int controlSource READ controlSource WRITE setControlSource NOTIFY tuningStateChanged)
+  Q_PROPERTY(int controlAction READ controlAction WRITE setControlAction NOTIFY tuningStateChanged)
+  Q_PROPERTY(int controlThreshold READ controlThreshold WRITE setControlThreshold NOTIFY tuningStateChanged)
+  Q_PROPERTY(QString controlText READ controlText NOTIFY tuningStateChanged)
+  Q_PROPERTY(bool controlEnabled READ controlEnabled WRITE setControlEnabled NOTIFY tuningStateChanged)
   Q_PROPERTY(QVariantList pressedKeys READ pressedKeys NOTIFY pressedKeysChanged)
 
 public:
@@ -61,8 +65,16 @@ public:
   QVariantList presetEntries() const { return state_.presetEntries; }
   int currentPresetIndex() const { return state_.currentPresetIndex; }
   bool adaptingEnabled() const { return state_.adaptingEnabled; }
-  QString aftertouchText() const { return state_.aftertouchText; }
-  bool aftertouchEnabled() const { return state_.aftertouchEnabled; }
+  QStringList controlSources() const { return TuningController::controlSources(); }
+  int controlSource() const { return state_.controlSource; }
+  int controlAction() const { return state_.controlAction; }
+  int controlThreshold() const { return state_.controlThreshold; }
+  void setControlSource(int source);
+  void setControlAction(int action);
+  void setControlThreshold(int threshold);
+  void setControlEnabled(bool enabled);
+  QString controlText() const { return state_.controlText; }
+  bool controlEnabled() const { return state_.controlEnabled; }
   QVariantList pressedKeys() const { return state_.pressedKeys; }
 
   void setEdoIndex(int index);
@@ -75,7 +87,7 @@ public:
   Q_INVOKABLE void applyPreset(int index);
   Q_INVOKABLE void deletePreset(int index);
   void setAdaptingEnabled(bool enabled);
-  Q_INVOKABLE void cycleAftertouchMode();
+  Q_INVOKABLE void toggleControlDirection();
 
   void requestRefreshFromWorker();
   void requestInitialRefresh();

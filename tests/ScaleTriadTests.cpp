@@ -451,6 +451,172 @@ void retriggerPreferenceAndProbeTests()
   std::cout << "PASS: saved retrigger preference, tuning-only mode and two-second MIDI probe lifecycle.\n";
 }
 
+void assignableControlTests()
+{
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
+  for (const auto* key : {"controlSource", "controlAction", "controlEnabled", "controlThreshold"})
+    settings.remove(QString("status/") + key);
+  settings.setValue("status/aftertouchBehaviour", 1);
+  settings.setValue("status/aftertouchThreshol", 42);
+  auto* output = new Output;
+  MidiController midi{std::unique_ptr<IMidiOut>(output), 5};
+  TuningController controller(&midi);
+  require(controller.controlSource() == 0 && controller.controlAction() == 1 &&
+    controller.controlThreshold() == 42 && controller.controlEnabled(), "Migrate old aftertouch direction and threshold");
+  require(!settings.contains("status/aftertouchBehaviour"), "Legacy aftertouch preferences retired");
+  require(TuningController::controlSources().size() == 124, "All assignable CCs and pressure/bend sources listed");
+  for (int i = 0; i < int(kNtetMappings.size()); ++i)
+    if (kNtetMappings[i].N == 31) controller.setEdoIndex(i);
+  controller.selectTuningCenter(0);
+  controller.setAdaptingEnabled(false);
+  controller.setControlAction(0);
+  controller.setControlThreshold(64);
+  midi.midiNoteOnReceived(64, 90, 1000);
+  midi.midiNoteOnReceived(76, 90, 1010);
+  midi.midiNoteOnReceived(67, 90, 1020);
+  controller.setControlSource(1);
+  midi.midiChannelMessageReceived(0xa0, 64, 64, 1030);
+  require(controller.keyNames()[4] == "Fb" && controller.keyNames()[7] == "G",
+    "Poly pressure changes addressed class only, including octave doubles");
+  const auto once = controller.keyValues();
+  midi.midiChannelMessageReceived(0xa0, 64, 127, 1040);
+  midi.midiChannelMessageReceived(0xa0, 64, 50, 1050);
+  midi.midiChannelMessageReceived(0xa0, 64, 80, 1060);
+  require(controller.keyValues() == once, "Pressure jitter and sustained pressure cannot repeat an action");
+  midi.midiChannelMessageReceived(0xa0, 79, 100, 1070);
+  require(controller.keyValues() == once, "Poly step ignores notes not physically held");
+  midi.midiChannelMessageReceived(0xa0, 64, 30, 1080);
+  controller.toggleControlDirection();
+  require(controller.controlEnabled() && controller.controlAction() == 1, "Direction toggle leaves activation untouched");
+  midi.midiChannelMessageReceived(0xa0, 64, 64, 1090);
+  require(controller.keyNames()[4] == "E", "Returning below half threshold rearms the gesture");
+  controller.setControlSource(0);
+  controller.setControlAction(0);
+  midi.midiPressureReceived(127, 1100);
+  require(controller.keyNames()[4] == "Fb", "Channel pressure steps an octave-doubled class only once");
+  for (int n : {64, 76, 67}) midi.midiNoteOffReceived(n, 0, 1200);
+  controller.selectTuningCenter(0);
+  midi.midiNoteOnReceived(64, 90, 1300);
+  controller.setControlSource(15); // CC11 expression, formerly discarded upstream.
+  output->messages.clear();
+  midi.midiChannelMessageReceived(0xb0, 11, 127, 1310);
+  midi.midiChannelMessageReceived(0xb0, 43, 127, 1320);
+  require(controller.keyNames()[4] == "Fb", "Expression CC can trigger tuning");
+  require(std::none_of(output->messages.begin(), output->messages.end(), [](auto m) {
+    return (m.status & 0xf0) == 0xb0 && (m.note == 11 || m.note == 43);
+  }), "Reserved controller and fine-resolution companion do not affect instrument expression");
+  controller.setControlEnabled(false);
+  output->messages.clear();
+  midi.midiChannelMessageReceived(0xb0, 11, 0, 1330);
+  require(output->messages.size() == 2 && output->messages.front().note == 11,
+    "Disabled assignment passes selected control on all output channels");
+  controller.setControlSource(68); // sustain
+  midi.midiChannelMessageReceived(0xb0, 64, 127, 1340);
+  output->messages.clear();
+  controller.setControlEnabled(true);
+  require(output->messages.size() == 2 && output->messages.front().note == 64 &&
+    output->messages.front().velocity == 0, "Reserving an already-held sustain releases native sustain first");
+  controller.setControlSource(2);
+  controller.selectTuningCenter(0);
+  midi.midiChannelMessageReceived(0xe0, 0, 0, 1400);
+  require(controller.keyNames()[4] == "E", "Bend opposite to selected direction does not trigger");
+  midi.midiChannelMessageReceived(0xe0, 127, 127, 1410);
+  require(controller.keyNames()[4] == "Fb", "Positive pitch bend triggers once");
+  midi.midiNoteOffReceived(64, 0, 1500);
+
+  settings.remove("tuningPresetsV2/31");
+  controller.selectTuningCenter(0); controller.captureCurrentPreset();
+  controller.selectTuningCenter(1); controller.captureCurrentPreset();
+  controller.setControlSource(68); controller.setControlAction(2);
+  const auto pedal = [&](int value) { midi.midiChannelMessageReceived(0xb0, 64, value, 1600); };
+  pedal(0); pedal(127);
+  require(controller.currentPresetIndex() == 0, "Next preset wraps from last to first");
+  pedal(127);
+  require(controller.currentPresetIndex() == 0, "Held pedal does not race through presets");
+  pedal(0); pedal(127);
+  require(controller.currentPresetIndex() == 1, "Next pedal gesture advances one preset");
+  controller.toggleControlDirection();
+  require(controller.controlAction() == 3, "Preset direction toggles independently of step actions");
+  pedal(0); pedal(127);
+  require(controller.currentPresetIndex() == 0, "Previous preset uses saved order");
+  pedal(0); pedal(127);
+  require(controller.currentPresetIndex() == 1, "Previous preset wraps from first to last");
+  controller.selectTuningCenter(2); pedal(0); pedal(127);
+  require(controller.currentPresetIndex() == 1, "Previous starts at last when no preset selected");
+  settings.remove("tuningPresetsV2/31");
+  const auto unchanged = controller.keyValues();
+  pedal(0); pedal(127);
+  require(controller.keyValues() == unchanged, "Empty preset list is harmless");
+  controller.setControlEnabled(false);
+  {
+    auto* second = new Output;
+    MidiController other{std::unique_ptr<IMidiOut>(second), 1};
+    TuningController restored(&other);
+    require(restored.controlSource() == 68 && restored.controlAction() == 3 &&
+      restored.controlThreshold() == 64 && !restored.controlEnabled(), "Persist the complete control assignment");
+  }
+  std::cout << "PASS: assignable MIDI controls, poly pressure, octave deduplication, gesture latch and preset navigation.\n";
+}
+
+void controlRetriggerTests()
+{
+  for (int source : {0, 15, 1})
+    for (int action : {0, 1})
+      for (bool enabled : {false, true})
+      {
+        auto* output = new Output;
+        MidiController midi{std::unique_ptr<IMidiOut>(output), 5};
+        TuningController controller(&midi);
+        for (int i = 0; i < int(kNtetMappings.size()); ++i)
+          if (kNtetMappings[i].N == 31) controller.setEdoIndex(i);
+        controller.selectTuningCenter(0);
+        controller.setAdaptingEnabled(false);
+        controller.setControlSource(source);
+        controller.setControlAction(action);
+        controller.setControlThreshold(64);
+        controller.setControlEnabled(true);
+        controller.setRetriggerHeldNotes(enabled);
+        midi.midiNoteOnReceived(64, 91, 1000);
+        midi.midiNoteOnReceived(76, 83, 1010);
+        midi.midiNoteOnReceived(67, 72, 1020);
+        const auto previous = controller.keyValues();
+        output->messages.clear();
+        const auto gesture = [&]() {
+          if (source == 0) midi.midiPressureReceived(127, 1030);
+          else midi.midiChannelMessageReceived(source == 1 ? 0xa0 : 0xb0,
+            source == 1 ? 64 : 11, 127, 1030);
+        };
+        gesture();
+        const auto& messages = output->messages;
+        const int affected = source == 1 ? 2 : 3;
+        const size_t tuningIndex = enabled ? affected * 2 : 0;
+        require(messages.size() == size_t(enabled ? affected * 4 + 1 : 1),
+          "Control gesture uses a single tuning message and optional off/on pairs only");
+        require(messages[tuningIndex].status == 0xf0, "All control NoteOffs precede tuning; all NoteOns follow it");
+        for (size_t i = 0; i < tuningIndex; ++i)
+          require((messages[i].status & 0xf0) == 0x80, "Stop all affected notes before changing tuning");
+        for (size_t i = tuningIndex + 1; i < messages.size(); ++i)
+          require((messages[i].status & 0xf0) == 0x90, "Restart only after tuning");
+        if (enabled)
+          for (int channel : {0, 2})
+            for (auto [note, velocity] : std::vector<std::pair<int, int>>{{64, 91}, {76, 83}, {67, 72}})
+            {
+              const int count = source == 1 && note == 67 ? 0 : 1;
+              require(std::count_if(messages.begin(), messages.end(), [&](auto m) {
+                return m.status == (0x90 | channel) && m.note == note && m.velocity == velocity;
+              }) == count, "Preserve velocities, channels and octave copies; leave unaffected notes alone");
+            }
+        require(controller.keyValues()[4] != previous[4] && controller.pressedKeys()[4].toBool(),
+          "Control tuning applies with either preference and preserves held-key state");
+        if (source == 1) require(controller.keyValues()[7] == previous[7], "Poly control leaves other classes unchanged");
+        output->messages.clear();
+        gesture();
+        require(output->messages.empty(), "A held control does not repeatedly retrigger notes");
+        for (int note : {64, 76, 67}) midi.midiNoteOffReceived(note, 0, 1200);
+      }
+  std::cout << "PASS: aftertouch, CC and poly steps obey retrigger preference with one atomic MIDI tuning update.\n";
+}
+
 void pressedKeyDisplayTests()
 {
   {
@@ -480,8 +646,9 @@ void pressedKeyDisplayTests()
     midi.midiNoteOffReceived(76, 0, 1210);
     require(!controller.pressedKeys()[4].toBool(), "Last octave release clears the highlight");
     controller.selectTuningCenter(0);
-    for (int i = 0; i < 3 && !controller.aftertouchText().contains("stepUp"); ++i)
-      controller.cycleAftertouchMode();
+    controller.setControlSource(0);
+    controller.setControlAction(0);
+    controller.setControlEnabled(true);
     midi.midiNoteOnReceived(64, 90, 2000);
     wait(10);
     midi.midiPressureReceived(0, 2020);
@@ -560,6 +727,8 @@ int main(int argc, char **argv)
       midiTests();
       retriggerPreferenceAndProbeTests();
       pressedKeyDisplayTests();
+      assignableControlTests();
+      controlRetriggerTests();
       viewModelNotificationTests();
     }
   }

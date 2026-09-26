@@ -58,24 +58,16 @@ TuningController::TuningController(
   adaptingEnabled_ =
     settings.value("adaptingEnabled", true).toBool();
 
-  int aftertouch =
-    settings.value("aftertouchBehaviour", 0).toInt();
-
-  int aftertouchThreshold =
-    settings.value("aftertouchThreshol", 10).toInt();
-
+  const int legacyAction = settings.value("aftertouchBehaviour", 0).toInt();
+  control_.source = std::clamp(settings.value("controlSource", 0).toInt(), 0, 123);
+  control_.action = std::clamp(settings.value("controlAction", legacyAction == 1 ? 1 : 0).toInt(), 0, 3);
+  control_.enabled = settings.value("controlEnabled", legacyAction != 2).toBool();
+  control_.threshold = std::clamp(settings.value("controlThreshold",
+    settings.value("aftertouchThreshol", 10)).toInt(), 1, 127);
   settings.endGroup();
-
-  if (aftertouch < 0 || aftertouch > 2)
-    aftertouch = 0;
-
-  if (afterTouchThreshold_ < 10
-    || afterTouchThreshold_ > 127)
-    aftertouch = 10;
-
-  afterTouch_ = static_cast<AfterTouch>(aftertouch);
-  afterTouchThreshold_ =
-    static_cast<uint8_t>(aftertouchThreshold);
+  saveControlBinding(); // One-time migration, including the old misspelled threshold key.
+  connect(midiController_, &MidiController::midiInPortChanged, this, [this]() { control_.clearInput(); });
+  connect(midiController_, &MidiController::midiInChannelChanged, this, [this]() { control_.clearInput(); });
 
   if (savedEdoIndex < 0
     || savedEdoIndex >= int(kNtetMappings.size()))
@@ -133,9 +125,6 @@ TuningController::TuningController(
       handleMidiChannelMessage(code, data1, data2);
     });
 
-  // La GUI legacy richiama questa stessa transizione dopo
-  // il caricamento delle impostazioni.
-  cycleAftertouchMode();
   resetAdaptiveState();
 }
 
@@ -371,22 +360,39 @@ void TuningController::moveKeyPitchBySteps(
     candidate.valueForKey[keyIndex] = *targetValue;
   }
 
+  applySteppedConfig(candidate, false);
+}
+
+void TuningController::applySteppedConfig(const Config& candidate, bool retrigger)
+{
+  if (candidate.valueForKey == currentConfig_.valueForKey) return;
+  const auto& mapping = kNtetMappings[edoIndex_];
+  auto* out = midiController_->midiOut();
+  const auto channels = midiController_->midiOutChannelMask();
+  std::vector<ActiveNote> restart;
+  if (out && retrigger && retriggerHeldNotes_)
+    for (const auto& note : activeNotes_)
+      if (mod((candidate.valueForKey[note.key] - currentConfig_.valueForKey[note.key])
+              * mapping.fifthStep, mapping.N) != 0)
+        restart.push_back(note);
+  // A gesture changes all affected classes together: stop them all before the
+  // single tuning message, then restart each held octave at its own velocity.
+  for (const auto& note : restart)
+    for (int channel = 0; channel < 16; ++channel)
+      if (channels & (quint32{1} << channel))
+        sendNoteOff(*out, uint8_t(channel), note.midiNote, 0);
+
   resetAdaptiveState();
-  currentConfig_.valueForKey[keyIndex] =
-    candidate.valueForKey[keyIndex];
+  currentConfig_ = candidate;
   currentPresetIndex_ = -1;
   rebuildConfigMask(currentConfig_);
-
-  const Config* matchingConfig =
-    findConfigByValues(
-      mapping,
-      currentConfig_.valueForKey);
-
-  currentConfig_.tuningCenter = matchingConfig
-    ? matchingConfig->tuningCenter
-    : Config::invalid;
-
+  const auto* matchingConfig = findConfigByValues(mapping, currentConfig_.valueForKey);
+  currentConfig_.tuningCenter = matchingConfig ? matchingConfig->tuningCenter : Config::invalid;
   sendCurrentTuning(false);
+  for (const auto& note : restart)
+    for (int channel = 0; channel < 16; ++channel)
+      if (channels & (quint32{1} << channel))
+        sendNoteOn(*out, uint8_t(channel), note.midiNote, note.velocity);
   setAdaptingEnabled(false);
   resetAdaptiveState();
   emit tuningStateChanged();
@@ -680,53 +686,103 @@ void TuningController::setAdaptingEnabled(bool enabled)
   emit tuningStateChanged();
 }
 
-QString TuningController::aftertouchText() const
+QStringList TuningController::controlSources()
 {
-  switch (afterTouch_)
-  {
-  case AfterTouch::stepUp:
-    return QString::fromUtf8("✓ Aftertouch = stepUp");
-  case AfterTouch::stepDown:
-    return QString::fromUtf8("✓ Aftertouch = stepDown");
-  case AfterTouch::off:
-    return QString::fromUtf8("✕ Aftertouch = off");
+  QStringList result{tr("Channel aftertouch"), tr("Polyphonic aftertouch"),
+    tr("Pitch bend up"), tr("Pitch bend down")};
+  const std::map<int, QString> names{
+    {0, tr("Bank select")}, {1, tr("Modulation wheel")}, {2, tr("Breath controller")},
+    {4, tr("Foot controller")}, {5, tr("Portamento time")}, {7, tr("Volume")},
+    {10, tr("Pan")}, {11, tr("Expression / expression pedal")},
+    {12, tr("Effect control 1")}, {13, tr("Effect control 2")},
+    {16, tr("General purpose 1")}, {17, tr("General purpose 2")},
+    {18, tr("General purpose 3")}, {19, tr("General purpose 4")},
+    {64, tr("Sustain pedal")}, {65, tr("Portamento switch")},
+    {66, tr("Sostenuto pedal")}, {67, tr("Soft pedal")}, {68, tr("Legato switch")},
+    {69, tr("Hold 2")}, {70, tr("Sound variation")}, {71, tr("Resonance")},
+    {72, tr("Release time")}, {73, tr("Attack time")}, {74, tr("Brightness")},
+    {80, tr("General purpose 5")}, {81, tr("General purpose 6")},
+    {82, tr("General purpose 7")}, {83, tr("General purpose 8")},
+    {84, tr("Portamento control")}, {91, tr("Reverb depth")}, {93, tr("Chorus depth")}};
+  for (int cc = 0; cc < 120; ++cc) {
+    const auto it = names.find(cc);
+    result.append(it == names.end() ? tr("CC %1").arg(cc)
+      : tr("%1 (CC %2)").arg(it->second).arg(cc));
   }
-
-  return {};
+  return result;
 }
 
-bool TuningController::aftertouchEnabled() const
+QString TuningController::controlText() const
 {
-  return afterTouch_ != AfterTouch::off;
+  QString source;
+  if (control_.source == 0) source = tr("Aftertouch");
+  else if (control_.source == 1) source = tr("Poly AT");
+  else if (control_.source == 2) source = tr("Bend up");
+  else if (control_.source == 3) source = tr("Bend down");
+  else source = tr("CC %1").arg(control_.source - 4);
+  const QStringList actions{tr("step +"), tr("step −"), tr("next preset"), tr("previous preset")};
+  return source + " = " + (control_.enabled ? actions[control_.action] : tr("off"));
 }
 
-void TuningController::cycleAftertouchMode()
-{
-  switch (afterTouch_)
-  {
-  case AfterTouch::stepUp:
-    afterTouch_ = AfterTouch::stepDown;
-    break;
-  case AfterTouch::stepDown:
-    afterTouch_ = AfterTouch::off;
-    break;
-  case AfterTouch::off:
-    afterTouch_ = AfterTouch::stepUp;
-    break;
-  }
+bool TuningController::controlEnabled() const { return control_.enabled; }
 
-  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
-    "NaadaLab", "Intona");
+void TuningController::saveControlBinding()
+{
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
   settings.beginGroup("status");
-  settings.setValue(
-    "aftertouchBehaviour",
-    static_cast<int>(afterTouch_));
-  settings.setValue(
-    "aftertouchThreshol",
-    afterTouchThreshold_);
-  settings.endGroup();
+  settings.setValue("controlSource", control_.source);
+  settings.setValue("controlAction", control_.action);
+  settings.setValue("controlEnabled", control_.enabled);
+  settings.setValue("controlThreshold", control_.threshold);
+  settings.remove("aftertouchBehaviour");
+  settings.remove("aftertouchThreshol");
+}
 
+void TuningController::setControlSource(int source)
+{
+  if (source < 0 || source >= 124 || source == control_.source) return;
+  control_.source = source;
+  control_.rearm();
+  releaseReservedControl();
+  saveControlBinding();
   emit tuningStateChanged();
+}
+void TuningController::setControlAction(int action)
+{
+  if (action < 0 || action > 3 || action == control_.action) return;
+  control_.action = action;
+  control_.rearm();
+  saveControlBinding();
+  emit tuningStateChanged();
+}
+void TuningController::setControlThreshold(int threshold)
+{
+  if (threshold < 1 || threshold > 127 || threshold == control_.threshold) return;
+  control_.threshold = threshold;
+  control_.rearm();
+  saveControlBinding();
+  emit tuningStateChanged();
+}
+void TuningController::setControlEnabled(bool enabled)
+{
+  if (enabled == control_.enabled) return;
+  control_.enabled = enabled;
+  control_.rearm();
+  releaseReservedControl();
+  saveControlBinding();
+  emit tuningStateChanged();
+}
+void TuningController::toggleControlDirection() { setControlAction(control_.action ^ 1); }
+
+void TuningController::releaseReservedControl()
+{
+  if (!control_.enabled) return;
+  const int cc = control_.source - 4;
+  // Avoid leaving a native sustain/sostenuto active when its release is captured.
+  if ((cc == 64 || cc == 66 || cc == 69) && forwardedControls_[cc] >= 64)
+    forwardControlMessage(0xb0, cc, 0);
+  if ((control_.source == 2 || control_.source == 3) && forwardedPitchBend_)
+    forwardControlMessage(0xe0, 0, 64);
 }
 
 QVariantList TuningController::pressedKeys() const
@@ -761,8 +817,11 @@ TuningUiSnapshot TuningController::uiSnapshot() const
   snapshot.presetEntries = presetEntries();
   snapshot.currentPresetIndex = currentPresetIndex();
   snapshot.adaptingEnabled = adaptingEnabled();
-  snapshot.aftertouchText = aftertouchText();
-  snapshot.aftertouchEnabled = aftertouchEnabled();
+  snapshot.controlSource = controlSource();
+  snapshot.controlAction = controlAction();
+  snapshot.controlThreshold = controlThreshold();
+  snapshot.controlText = controlText();
+  snapshot.controlEnabled = controlEnabled();
   snapshot.pressedKeys = pressedKeys();
   return snapshot;
 }
@@ -927,6 +986,7 @@ void TuningController::handleMidiNoteOn(int note, int velocity, quint32 timeMs)
     handleMidiNoteOff(note, 0, timeMs);
 
   if (adaptingEnabled_) { scaleTriads_.advance(eventNow()); applyScaleConfig(); }
+  control_.releaseNote(note);
   ActiveNote arriving{static_cast<uint8_t>(note), static_cast<uint8_t>(note % 12),
     static_cast<uint8_t>(velocity), currentConfig_.valueForKey[note % 12],
     ++nextNoteGeneration_};
@@ -957,6 +1017,7 @@ void TuningController::handleMidiNoteOff(int note, int velocity, quint32 timeMs)
   cancelRetuningTest();
   observeEventClock(timeMs);
 
+  control_.releaseNote(note);
   const auto active = std::find_if(activeNotes_.begin(), activeNotes_.end(),
     [note](const ActiveNote& held) { return held.midiNote == note; });
   if (active != activeNotes_.end())
@@ -973,55 +1034,64 @@ void TuningController::handleMidiNoteOff(int note, int velocity, quint32 timeMs)
   emit tuningStateChanged();
 }
 
-void TuningController::handleMidiPressure(int pressure)
+void TuningController::executeControlAction(int polyNote)
 {
-  if (readyToBehaveAftertouch_
-    && pressure >= afterTouchThreshold_)
-  {
-    if (afterTouch_ == AfterTouch::stepUp)
-    {
-      for (const auto& note : activeNotes_)
-        stepKeyPitch(note.key, 1);
-    }
-    else if (afterTouch_ == AfterTouch::stepDown)
-    {
-      for (const auto& note : activeNotes_)
-        stepKeyPitch(note.key, -1);
-    }
-
-    readyToBehaveAftertouch_ = false;
+  if (control_.action >= 2) {
+    const int count = int(loadPresets().size());
+    if (!count) return;
+    const bool next = control_.action == 2;
+    const int index = currentPresetIndex_ < 0 ? (next ? 0 : count - 1)
+      : (currentPresetIndex_ + (next ? 1 : count - 1)) % count;
+    applyPreset(index);
+    return;
   }
-  else if (pressure == 0)
-  {
-    readyToBehaveAftertouch_ = true;
-  }
+  // MTS octave tuning affects pitch classes, not individual octaves. Deduplicate
+  // octave doublings so a global gesture moves each key by exactly one step.
+  std::array<bool, 12> keys{};
+  for (const auto& note : activeNotes_)
+    if (polyNote < 0 || note.midiNote == polyNote) keys[note.key] = true;
+  Config candidate = currentConfig_;
+  const auto& mapping = kNtetMappings[edoIndex_];
+  for (int key = 0; key < 12; ++key)
+    if (keys[key])
+      if (const auto value = steppedValueForKey(key, control_.action == 0 ? 1 : -1,
+            candidate, mapping, currentGlobalOffsetCents_))
+        candidate.valueForKey[key] = *value;
+  applySteppedConfig(candidate, true);
 }
 
-void TuningController::handleMidiChannelMessage(
-  int code,
-  int data1,
-  int data2)
+void TuningController::handleMidiPressure(int pressure)
 {
-  IMidiOut* out = midiController_->midiOut();
-  if (!out)
-    return;
+  handleMidiChannelMessage(0xd0, pressure, 0);
+}
 
+void TuningController::handleMidiChannelMessage(int code, int data1, int data2)
+{
+  if (data1 < 0 || data1 > 127 || data2 < 0 || data2 > 127) return;
   cancelRetuningTest();
-  const quint32 channelMask =
-    midiController_->midiOutChannelMask();
-
-  for (int channel = 0; channel < 16; ++channel)
-  {
-    if ((channelMask & (quint32(1) << channel)) == 0)
-      continue;
-
-    sendChannelMessage(
-      *out,
-      static_cast<uint8_t>(channel),
-      static_cast<uint8_t>(code),
-      static_cast<uint8_t>(data1),
-      static_cast<uint8_t>(data2));
+  const bool selected = control_.matches(code, data1);
+  const bool companion = control_.companion(code, data1);
+  const bool triggered = control_.update(code, data1, data2);
+  if (control_.enabled && (selected || companion)) {
+    if (triggered) executeControlAction(code == 0xa0 ? data1 : -1);
+    return;
   }
+  // Preserve the previous routing exclusions for unassigned controls only.
+  if (code == 0xb0 && !selected && !companion &&
+    (data1 == 0 || data1 == 7 || data1 == 10 || data1 == 11 || data1 == 32 || data1 == 71 || data1 == 74)) return;
+  forwardControlMessage(code, data1, data2);
+}
+
+void TuningController::forwardControlMessage(int code, int data1, int data2)
+{
+  auto* out = midiController_->midiOut();
+  if (!out) return;
+  if (code == 0xb0) forwardedControls_[data1] = data2;
+  if (code == 0xe0) forwardedPitchBend_ = data1 != 0 || data2 != 64;
+  const auto channels = midiController_->midiOutChannelMask();
+  for (int channel = 0; channel < 16; ++channel)
+    if (channels & (quint32{1} << channel))
+      sendChannelMessage(*out, uint8_t(channel), uint8_t(code), uint8_t(data1), uint8_t(data2));
 }
 
 void TuningController::resetAdaptiveState()

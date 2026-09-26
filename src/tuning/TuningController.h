@@ -4,6 +4,7 @@
 #include "TuningTypes.h"
 #include "NoteNaming.h"
 #include "ScaleTriadAdapting.h"
+#include "MidiControlBinding.h"
 #include <QElapsedTimer>
 
 #include <QObject>
@@ -37,8 +38,11 @@ struct TuningUiSnapshot
   bool retuningTestAwaitingAnswer = false;
   QString retuningTestMessage;
   bool adaptingEnabled = false;
-  QString aftertouchText;
-  bool aftertouchEnabled = false;
+  int controlSource = 0;
+  int controlAction = 0;
+  int controlThreshold = 10;
+  QString controlText;
+  bool controlEnabled = false;
   QVariantList pressedKeys;
 };
 
@@ -96,12 +100,12 @@ class TuningController final : public QObject
              WRITE setAdaptingEnabled
              NOTIFY tuningStateChanged)
 
-  Q_PROPERTY(QString aftertouchText
-             READ aftertouchText
+  Q_PROPERTY(QString controlText
+             READ controlText
              NOTIFY tuningStateChanged)
 
-  Q_PROPERTY(bool aftertouchEnabled
-             READ aftertouchEnabled
+  Q_PROPERTY(bool controlEnabled
+             READ controlEnabled
              NOTIFY tuningStateChanged)
 
   Q_PROPERTY(QVariantList pressedKeys
@@ -156,9 +160,17 @@ public:
   bool adaptingEnabled() const;
   void setAdaptingEnabled(bool enabled);
 
-  QString aftertouchText() const;
-  bool aftertouchEnabled() const;
-  Q_INVOKABLE void cycleAftertouchMode();
+  static QStringList controlSources();
+  int controlSource() const { return control_.source; }
+  int controlAction() const { return control_.action; }
+  int controlThreshold() const { return control_.threshold; }
+  void setControlSource(int source);
+  void setControlAction(int action);
+  void setControlThreshold(int threshold);
+  void setControlEnabled(bool enabled);
+  QString controlText() const;
+  bool controlEnabled() const;
+  Q_INVOKABLE void toggleControlDirection();
 
   QVariantList pressedKeys() const;
   TuningUiSnapshot uiSnapshot() const;
@@ -199,9 +211,14 @@ private:
   void observeEventClock(quint32 stamp);
   double eventNow() const;
   uint64_t nextNoteGeneration_ = 0;
-  AfterTouch afterTouch_ = AfterTouch::stepUp;
-  uint8_t afterTouchThreshold_ = 64;
-  bool readyToBehaveAftertouch_ = true;
+  MidiControlBinding control_;
+  std::array<int, 128> forwardedControls_{};
+  bool forwardedPitchBend_ = false;
+  void saveControlBinding();
+  void releaseReservedControl();
+  void executeControlAction(int polyNote);
+  void applySteppedConfig(const Config& candidate, bool retrigger);
+  void forwardControlMessage(int code, int data1, int data2);
 
   std::vector<TuningPreset> loadPresets() const;
   void savePresets(

@@ -27,11 +27,4 @@ struct ActiveNote
   uint64_t generation = 0;
 };
 
-enum class AfterTouch : uint8_t
-{
-  stepUp,
-  stepDown,
-  off
-};
-
 } // namespace Intona::Tuning

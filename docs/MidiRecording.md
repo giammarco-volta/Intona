@@ -26,3 +26,5 @@ Pair notes by channel and MIDI note, preserve event order for equal timestamps, 
 `IntonaMidiRecording` tests short notes, equal timestamps, overlaps, velocity-zero releases, pedal timestamps, wrap preservation, separate takes, shutdown and file errors. `IntonaSettingsPage` exercises Start/Stop using a temporary directory.
 
 The context also records `retrigger_held_notes`. The Settings instrument test sends output directly and does not create recorded input events.
+
+Assignable-control context includes `control_source`, `control_action`, `control_enabled`, and `control_threshold` (see [MIDI controls](MidiControls.md)). All CCs now reach recording before the action-aware output routing, including CC11 expression previously discarded by the input interpreter.

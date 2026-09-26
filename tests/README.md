@@ -46,3 +46,7 @@ interpretations with retrigger disabled, and the two-second Settings probe:
 real-time MTS bytes, selected channels, midpoint pitch change without a second
 attack, final Note Off and exact table restoration. Cancellation, incoming notes,
 output changes, shutdown and send failure paths use injected output only.
+
+Assignable-control tests cover migration of aftertouch preferences, CC11 input delivery, source consumption/passthrough, pressure and bend thresholds, octave deduplication, polyphonic target selection, native sustain release when reserving a pedal, and preset navigation. See [MIDI controls](../docs/MidiControls.md).
+
+The shared MIDI port selector regression starts with a saved port name and an empty list, then enumerates ports asynchronously. It checks the displayed name after enumeration, reordering, disappearance/reconnection, backend selection changes, and user selection followed by refresh. Model updates must never emit a port-selection command.

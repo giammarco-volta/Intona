@@ -45,6 +45,11 @@ int main(int argc, char** argv)
   MidiEventRecorder recorder(nullptr, recordingDirectory.path());
   engine.rootContext()->setContextProperty("PerformanceRecorder", &recorder);
   QQmlPropertyMap settings;
+  settings.insert("controlSources", QStringList{"Channel aftertouch", "Polyphonic aftertouch", "Pitch bend up"});
+  settings.insert("controlSource", 0);
+  settings.insert("controlAction", 0);
+  settings.insert("controlThreshold", 10);
+  settings.insert("controlEnabled", true);
   settings.insert("noteNamingMode", 0);
   settings.insert("retriggerHeldNotes", true);
   settings.insert("retuningTestRunning", false);
@@ -81,6 +86,13 @@ ApplicationWindow {
     std::cerr << component.errorString().toStdString() << "Missing window or selector\n";
     return 1;
   }
+  auto* source = root->findChild<QObject*>("midiControlSource");
+  auto* action = root->findChild<QObject*>("midiControlAction");
+  auto* enabled = root->findChild<QObject*>("midiControlEnabled");
+  if (!source || !action || !enabled || !root->findChild<QObject*>("midiControlThreshold")) return 34;
+  QMetaObject::invokeMethod(source, "activated", Q_ARG(int, 1));
+  QMetaObject::invokeMethod(action, "activated", Q_ARG(int, 2));
+  if (settings.value("controlSource").toInt() != 1 || settings.value("controlAction").toInt() != 2) return 35;
   auto* retrigger = root->findChild<QObject*>("retriggerHeldNotesSelector");
   if (!retrigger || !retrigger->property("checked").toBool()
       || !root->findChild<QObject*>("retuningTestButton")) return 30;
@@ -136,6 +148,84 @@ ApplicationWindow {
   if (!root->findChild<QObject*>("retuningTestStatus")->property("visible").toBool()) return 32;
   if (!screenshotDir.isEmpty()
       && !window->grabWindow().save(screenshotDir + "/settings-test-result.png")) return 33;
+  QQmlComponent surface(&engine);
+  const auto controls = QUrl::fromLocalFile(QStringLiteral(INTONA_SOURCE_DIR "/src/qml/controls")).toString();
+  const QString surfaceQml = QStringLiteral(R"(
+import QtQuick
+import QtQuick.Controls
+import "%1" as Controls
+ApplicationWindow {
+    id: testWindow
+    width:1000; height:720; visible:true
+    property int toggleCount:0
+    property int directionCount:0
+    Controls.TuningCircle {
+        anchors.fill:parent
+        controlText:"CC 11 = preset next"; controlEnabled:true
+        onControlToggled: { testWindow.toggleCount++; controlEnabled = !controlEnabled }
+        onControlDirectionRequested: testWindow.directionCount++
+    }
+})").arg(controls);
+  surface.setData(surfaceQml.toUtf8(), QUrl());
+  std::unique_ptr<QObject> surfaceRoot(surface.create());
+  if (!surfaceRoot) { std::cerr << surface.errorString().toStdString(); return 36; }
+  auto* enableArea = surfaceRoot->findChild<QQuickItem*>("controlEnabledHitArea");
+  auto* directionArea = surfaceRoot->findChild<QQuickItem*>("controlDirectionHitArea");
+  if (!enableArea || !directionArea) return 37;
+  settle();
+  if (enableArea->mapToScene(QPointF(enableArea->width(), 0)).x()
+      > directionArea->mapToScene(QPointF(0, 0)).x() + 0.1) return 38;
+  void* clickEvent = nullptr;
+  QMetaObject::invokeMethod(enableArea, "clicked", Qt::DirectConnection, QGenericArgument("QQuickMouseEvent*", &clickEvent));
+  if (surfaceRoot->property("toggleCount").toInt() != 1 || surfaceRoot->property("directionCount").toInt()) return 39;
+  QMetaObject::invokeMethod(directionArea, "clicked", Qt::DirectConnection, QGenericArgument("QQuickMouseEvent*", &clickEvent));
+  if (surfaceRoot->property("toggleCount").toInt() != 1 || surfaceRoot->property("directionCount").toInt() != 1) return 40;
+  surfaceRoot.reset();
+  settle();
+  // The saved name arrives before asynchronous MIDI enumeration at startup.
+  QQmlComponent midiSelector(&engine);
+  midiSelector.setData(R"(
+import QtQuick
+import NaadaLab.Ui as SharedUi
+SharedUi.MidiPortSelector {
+    width: 500
+    currentPort: "Pa5X"
+    property int selections: 0
+    onPortSelected: function(name) { selections++; currentPort = name }
+})", QUrl());
+  std::unique_ptr<QObject> portRoot(midiSelector.create());
+  if (!portRoot) { std::cerr << midiSelector.errorString().toStdString(); return 41; }
+  QObject* portCombo = nullptr;
+  for (auto* child : portRoot->findChildren<QObject*>())
+    if (child->metaObject()->indexOfProperty("currentText") >= 0) { portCombo = child; break; }
+  if (!portCombo) return 42;
+  portRoot->setProperty("ports", QStringList{"Unconnected output", "Pa5X", "Other output"});
+  settle();
+  if (portCombo->property("currentText").toString() != "Pa5X") {
+    std::cerr << "Saved output Pa5X is displayed as " << portCombo->property("currentText").toString().toStdString() << "\n";
+    return 43;
+  }
+  portRoot->setProperty("ports", QStringList{"Pa5X", "Other output", "Unconnected output"});
+  settle();
+  if (portCombo->property("currentText").toString() != "Pa5X") return 44;
+  portRoot->setProperty("ports", QStringList{"Other output"});
+  settle();
+  if (portCombo->property("currentIndex").toInt() != -1) return 45;
+  portRoot->setProperty("ports", QStringList{"Other output", "Pa5X"});
+  settle();
+  if (portCombo->property("currentText").toString() != "Pa5X" || portRoot->property("selections").toInt()) return 46;
+  portRoot->setProperty("currentPort", "Other output");
+  settle();
+  if (portCombo->property("currentText").toString() != "Other output") return 47;
+  portCombo->setProperty("currentIndex", 1);
+  QMetaObject::invokeMethod(portCombo, "activated", Q_ARG(int, 1));
+  settle();
+  if (portRoot->property("currentPort").toString() != "Pa5X" || portRoot->property("selections").toInt() != 1) return 48;
+  portRoot->setProperty("ports", QStringList{"Pa5X", "Other output"});
+  settle();
+  if (portCombo->property("currentText").toString() != "Pa5X") return 49;
+  portRoot.reset();
+  std::cout << "PASS: saved MIDI port remains visible through asynchronous enumeration, reorder and reconnect.\n";
   // Exercise the real shared rail and its packaged SVG with the software
   // renderer: a shader-only tint used to leave this icon completely blank.
   QQmlComponent navigation(&engine);

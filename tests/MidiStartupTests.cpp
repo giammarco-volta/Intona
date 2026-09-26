@@ -79,6 +79,16 @@ int main(int argc, char **argv)
       QCoreApplication::processEvents();
       require(noteOns == 1 && controller.midiOut()->sendShort(0x91, 60, 90),
               "Input callback and output work immediately, without reselecting either port");
+      int expression = 0, polyPressure = 0;
+      QObject::connect(&controller, &MidiController::midiChannelMessageReceived,
+        [&](int code, int a, int b, quint32) {
+          if (code == 0xb0 && a == 11 && b == 100) ++expression;
+          if (code == 0xa0 && a == 60 && b == 70) ++polyPressure;
+        });
+      event.status = 0xb2; event.data1 = 11; event.data2 = 100; input->callback(event);
+      event.status = 0xa2; event.data1 = 60; event.data2 = 70; input->callback(event);
+      QCoreApplication::processEvents();
+      require(expression == 1 && polyPressure == 1, "Expression and poly pressure survive the real input interpreter");
       if (!run)
       {
         controller.setMidiInPort("Input A");

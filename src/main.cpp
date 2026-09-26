@@ -117,6 +117,10 @@ int main(int argc, char** argv)
       {"key_values", tuningViewModel.keyValues()},
       {"rt_adapting", tuningViewModel.adaptingEnabled()},
       {"retrigger_held_notes", tuningViewModel.retriggerHeldNotes()},
+      {"control_source", tuningViewModel.controlSource()},
+      {"control_action", tuningViewModel.controlAction()},
+      {"control_enabled", tuningViewModel.controlEnabled()},
+      {"control_threshold", tuningViewModel.controlThreshold()},
       {"scale_verification_ms", 70},
       {"adaptive_algorithm", "scales_triads_v1"}});
   };

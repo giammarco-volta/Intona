@@ -16,8 +16,8 @@ Item {
     property var canLowerKeys: []
     property var pressedKeys: []
     property bool adaptingEnabled: true
-    property string aftertouchText: ""
-    property bool aftertouchEnabled: true
+    property string controlText: ""
+    property bool controlEnabled: true
     property bool compactLayout: false
     property bool noteDragActive: false
     property int noteDragTargetStep: -1
@@ -28,7 +28,8 @@ Item {
     signal keyMoveRequested(int keyIndex, int stepCount)
     signal capturePresetRequested()
     signal adaptingToggled()
-    signal aftertouchModeRequested()
+    signal controlDirectionRequested()
+    signal controlToggled()
 
     readonly property real diameter:
         Math.max(0, Math.min(width, height) - 20)
@@ -360,33 +361,72 @@ Item {
         spacing: 0
 
         Item {
-            width: Math.max(
-                       aftertouchLabel.implicitWidth + 20,
-                       root.diameter * 0.32)
-            height: root.optionTouchHeight
-
-            Label {
-                id: aftertouchLabel
-
-                anchors.left: parent.left
-                anchors.verticalCenter: parent.verticalCenter
-                anchors.verticalCenterOffset: -parent.height / 2
-
-                text: root.aftertouchText
-                color: root.aftertouchEnabled
-                       ? SharedUi.Theme.success
-                       : SharedUi.Theme.disabledText
+            id: controlHeader
+            readonly property real availableWidth: Math.max(70,
+                root.centerX - Math.sqrt(Math.max(0, root.outerRadius * root.outerRadius
+                    - Math.pow(root.nameRadius - root.optionTouchHeight / 2, 2)))
+                - root.sideLabelsX - 8)
+            TextMetrics {
+                id: controlTextMetrics
+                text: root.controlText
+                font.family: controlWord.font.family
                 font.bold: true
                 font.pixelSize: Math.max(11, root.diameter / 38)
             }
+            width: Math.min(controlTextMetrics.width + 32, availableWidth)
+            height: root.optionTouchHeight
 
-            MouseArea {
-                anchors.fill: parent
-                anchors.topMargin: -parent.height / 2
-                anchors.bottomMargin: parent.height / 2
-                cursorShape: Qt.PointingHandCursor
-                preventStealing: true
-                onClicked: root.aftertouchModeRequested()
+            Item {
+                anchors.left: parent.left
+                anchors.verticalCenter: parent.top
+                width: 28
+                height: parent.height
+                Label {
+                    anchors.centerIn: parent
+                    text: root.controlEnabled ? "✓" : "✕"
+                    color: root.controlEnabled ? SharedUi.Theme.success : SharedUi.Theme.disabledText
+                    font.bold: true
+                    font.pixelSize: Math.max(14, root.diameter / 38)
+                }
+                MouseArea {
+                    objectName: "controlEnabledHitArea"
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    preventStealing: true
+                    onClicked: root.controlToggled()
+                }
+            }
+            Item {
+                anchors.left: parent.left
+                anchors.leftMargin: 28
+                anchors.right: parent.right
+                anchors.verticalCenter: parent.top
+                height: parent.height
+                Label {
+                    id: controlWord
+                    objectName: "controlActionLabel"
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.verticalCenter: parent.verticalCenter
+                    text: root.controlText
+                    fontSizeMode: Text.HorizontalFit
+                    minimumPixelSize: 8
+                    elide: Text.ElideRight
+                    color: root.controlEnabled ? SharedUi.Theme.success : SharedUi.Theme.disabledText
+                    font.bold: true
+                    font.pixelSize: Math.max(11, root.diameter / 38)
+                }
+                MouseArea {
+                    id: controlDirectionArea
+                    objectName: "controlDirectionHitArea"
+                    anchors.fill: parent
+                    cursorShape: Qt.PointingHandCursor
+                    hoverEnabled: true
+                    preventStealing: true
+                    onClicked: root.controlDirectionRequested()
+                }
+                ToolTip.visible: controlDirectionArea.containsMouse
+                ToolTip.text: root.controlText
             }
         }
 

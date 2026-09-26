@@ -118,11 +118,31 @@ void TuningViewModel::setAdaptingEnabled(bool enabled)
     Qt::QueuedConnection);
 }
 
-void TuningViewModel::cycleAftertouchMode()
+void TuningViewModel::setControlSource(int source)
+{
+  QMetaObject::invokeMethod(worker_, [worker = worker_, source]() { worker->setControlSource(source); }, Qt::QueuedConnection);
+}
+
+void TuningViewModel::setControlAction(int action)
+{
+  QMetaObject::invokeMethod(worker_, [worker = worker_, action]() { worker->setControlAction(action); }, Qt::QueuedConnection);
+}
+
+void TuningViewModel::setControlThreshold(int threshold)
+{
+  QMetaObject::invokeMethod(worker_, [worker = worker_, threshold]() { worker->setControlThreshold(threshold); }, Qt::QueuedConnection);
+}
+
+void TuningViewModel::setControlEnabled(bool enabled)
+{
+  QMetaObject::invokeMethod(worker_, [worker = worker_, enabled]() { worker->setControlEnabled(enabled); }, Qt::QueuedConnection);
+}
+
+void TuningViewModel::toggleControlDirection()
 {
   QMetaObject::invokeMethod(
     worker_,
-    [worker = worker_]() { worker->cycleAftertouchMode(); },
+    [worker = worker_]() { worker->toggleControlDirection(); },
     Qt::QueuedConnection);
 }
 

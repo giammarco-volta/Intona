@@ -58,10 +58,10 @@ Rectangle {
                 pressedKeys: TuningController.pressedKeys
                 adaptingEnabled:
                     TuningController.adaptingEnabled
-                aftertouchText:
-                    TuningController.aftertouchText
-                aftertouchEnabled:
-                    TuningController.aftertouchEnabled
+                controlText:
+                    TuningController.controlText
+                controlEnabled:
+                    TuningController.controlEnabled
 
                 onEdoSelected: function(index) {
                     TuningController.edoIndex = index
@@ -88,8 +88,10 @@ Rectangle {
                     TuningController.adaptingEnabled =
                         !TuningController.adaptingEnabled
 
-                onAftertouchModeRequested:
-                    TuningController.cycleAftertouchMode()
+                onControlToggled: TuningController.controlEnabled = !TuningController.controlEnabled
+
+                onControlDirectionRequested:
+                    TuningController.toggleControlDirection()
             }
         }
 

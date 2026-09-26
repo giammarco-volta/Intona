@@ -648,7 +648,7 @@
       <p>Real-time adapting uses scales and major/minor triads, and evaluates incoming notes immediately. It uses the new note, all distinct held note classes, and, if needed, the most recently released distinct notes to form a context of at least three classes. Repetitions and octave doublings do not add independent evidence. The keyboard keeps its fifth-cycle anchor: moving the centre by one fifth preserves the eleven common assignments.</p>
       <p>The five scale families are major, harmonic major, natural minor, melodic minor and harmonic minor. The established centre can explain the context through its own five scales and those of its dominant and subdominant. An alternative centre uses only its own five scales. During a provisional transition, the candidate uses five scales and the previous established centre retains fifteen for recovery. Candidates are visited by alternating ascending and descending fifths, taking the first compatible interpretation while preserving established pivots.</p>
       <h3>Held notes and instrument test</h3>
-      <p>In Settings, <strong>Retrigger held notes</strong> controls how adaptive tuning updates notes that are already sounding. It is enabled initially and saved automatically. When enabled, Intona sends Note Off, tuning and Note On for affected notes. When disabled, it sends only tuning: the instrument may update held notes itself, or apply the new pitch at the next attack. The interpretation rules and pivot protection stay the same.</p>
+      <p>In Settings, <strong>Retrigger held notes</strong> controls how adaptive tuning and MIDI-control step actions update notes that are already sounding. It is enabled initially and saved automatically. When enabled, Intona sends Note Off, tuning and Note On for affected notes. When disabled, it sends only tuning: the instrument may update held notes itself, or apply the new pitch at the next attack. The interpretation rules and pivot protection stay the same.</p>
       <p><strong>Test held-note tuning</strong> plays a two-second note on the selected MIDI output channels and changes its tuning noticeably halfway through, without restarting it. Release all keys and the sustain pedal first, and use a sustained sound such as an organ. The original tuning is restored at the end. Answer the question according to what you hear; the suggestion does not change your preference automatically. If you hear no note, check the output connection and channels.</p>
       <p>You can stop the test at any time. Playing or changing the tuning or MIDI output interrupts it and restores the previous tuning where the connection is available. Test notes are not recorded as performance input.</p>
       <p>When the context contains the keyboard shape of a major or minor triad, its spelling must make it an actual major or minor triad: F–Ab–C instead of F–G#–C, and D–F#–A instead of D–Gb–A. All detected triads must agree with the scale interpretation. If those requirements conflict, the correction yields to the scale logic. No harmonic-distance cost, time-weighted history or history parameters are used. The triad check is part of scale interpretation; no general chord recognizer is used.</p>
@@ -661,13 +661,12 @@
 
       <p>When it is disabled, the current tuning layout remains fixed until the user changes it manually.</p>
 
-      <h3>Aftertouch</h3>
-
-      <p>The <strong>Aftertouch</strong> indicator shows whether aftertouch control is enabled.</p>
-
-      <p>When aftertouch control is active, aftertouch messages can be used to influence tuning behaviour according to the selected mode.</p>
-
-      <p>When aftertouch is off, aftertouch messages do not affect the tuning.</p>
+      <h3>Keyboard and pedal control</h3>
+      <p>In Settings, select the MIDI control and its action: tuning step up/down, or next/previous preset. Available controls include channel aftertouch, polyphonic aftertouch, pitch bend up/down and CC 0–119, including modulation, expression, foot controller and sustain/sostenuto/soft pedals. Choose the CC transmitted by your keyboard or pedal; Intona cannot determine the physical pedal from the MIDI message alone. The assignment, activation and threshold are saved automatically.</p>
+      <p>Each gesture performs one action when its value reaches the activation threshold. Return to half that threshold or lower to rearm it. Pitch bend uses distance from the centre in the selected direction. Continuous pressure or pedal movement above the threshold does not repeat the action.</p>
+      <p>Polyphonic aftertouch steps only the addressed held key. Other controls step every held key once, even with octave doublings. Intona uses one tuning per pitch class, so all octaves share the change. Preset actions affect the whole tuning and cycle through the current EDO's saved presets; with no preset selected, next starts at the first and previous at the last.</p>
+      <p>On the tuning surface, click the check mark to enable or disable the assignment. Click its text to reverse the direction: step up/down or next/previous preset. Reversing direction does not enable a disabled assignment.</p>
+      <p>When enabled, the assigned control is reserved for Intona and is not forwarded to the instrument. When disabled, that control passes through normally. The fine-resolution companion of an assigned coarse CC is reserved too. MIDI channel-mode messages are not assignable. This is MIDI 1.0 polyphonic key pressure on the selected input channel, not MPE.</p>
 
       <h3>Keep it</h3>
 

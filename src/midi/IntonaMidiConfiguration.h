@@ -7,13 +7,8 @@ makeIntonaMidiInConfiguration()
 {
   MidiIn_MonoInterpreter::Configuration configuration;
 
-  configuration.ignoredControlChanges.set(0);
-  configuration.ignoredControlChanges.set(7);
-  configuration.ignoredControlChanges.set(10);
-  configuration.ignoredControlChanges.set(11);
-  configuration.ignoredControlChanges.set(32);
-  configuration.ignoredControlChanges.set(71);
-  configuration.ignoredControlChanges.set(74);
+  // All CCs must reach the configurable action binding. Legacy forwarding
+  // exclusions are applied by TuningController after binding dispatch.
 
   configuration.ignoreProgramChanges = true;
   configuration.noteOffStatePolicy =

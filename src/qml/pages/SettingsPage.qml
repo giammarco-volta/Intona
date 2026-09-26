@@ -31,69 +31,145 @@ Rectangle {
                 font.bold: true
             }
 
-            SharedUi.FormSection {
-                title: qsTr("Held notes")
+            GridLayout {
                 Layout.fillWidth: true
+                columns: scroll.availableWidth >= 740 ? 2 : 1
+                columnSpacing: SharedUi.Theme.pageSpacing
+                rowSpacing: SharedUi.Theme.pageSpacing
+                SharedUi.FormSection {
+                    id: controlSettingsPanel
+                    objectName: "controlSettingsPanel"
+                    title: qsTr("Keyboard and pedal control")
+                    Layout.fillWidth: true
+                    Layout.preferredWidth: 1
+                    Layout.alignment: Qt.AlignTop
+                    CheckBox {
+                        objectName: "midiControlEnabled"
+                        text: qsTr("Enable assigned control")
+                        checked: TuningController.controlEnabled
+                        onToggled: TuningController.controlEnabled = checked
+                    }
+                    GridLayout {
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: 500
+                        columns: controlSettingsPanel.width >= 430 ? 2 : 1
+                        columnSpacing: 12
+                        rowSpacing: 8
+                        Label { text: qsTr("Control"); color: SharedUi.Theme.text }
+                        ComboBox {
+                            objectName: "midiControlSource"
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 400
+                            model: TuningController.controlSources
+                            currentIndex: TuningController.controlSource
+                            onActivated: function(index) { TuningController.controlSource = index }
+                            Accessible.name: qsTr("MIDI control")
+                        }
+                        Label { text: qsTr("Action"); color: SharedUi.Theme.text }
+                        ComboBox {
+                            objectName: "midiControlAction"
+                            Layout.fillWidth: true
+                            Layout.maximumWidth: 400
+                            model: [qsTr("Tuning step up"), qsTr("Tuning step down"),
+                                    qsTr("Next preset"), qsTr("Previous preset")]
+                            currentIndex: TuningController.controlAction
+                            onActivated: function(index) { TuningController.controlAction = index }
+                            Accessible.name: qsTr("Assigned action")
+                        }
+                    }
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.maximumWidth: 400
+                        Label {
+                            text: qsTr("Activation threshold")
+                            color: SharedUi.Theme.text
+                            Layout.fillWidth: true
+                            wrapMode: Text.WordWrap
+                        }
+                        SpinBox {
+                            objectName: "midiControlThreshold"
+                            from: 1; to: 127; editable: true
+                            value: TuningController.controlThreshold
+                            onValueModified: TuningController.controlThreshold = value
+                            Accessible.name: qsTr("Activation threshold")
+                        }
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: SharedUi.Theme.secondaryText
+                        text: qsTr("One action per gesture. Enabled controls are reserved for Intona.")
+                    }
 
-                CheckBox {
-                    objectName: "retriggerHeldNotesSelector"
-                    text: qsTr("Retrigger held notes")
-                    Layout.fillWidth: true
-                    checked: TuningController.retriggerHeldNotes
-                    onToggled: TuningController.retriggerHeldNotes = checked
                 }
-                Label {
+
+                SharedUi.FormSection {
+                    objectName: "heldNotesSettingsPanel"
+                    title: qsTr("Held notes")
                     Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: SharedUi.Theme.secondaryText
-                    text: qsTr("When enabled, adaptive tuning stops and restarts affected notes around the tuning change. When disabled, Intona sends only the tuning: the instrument may update held notes itself, or apply the new pitch only at the next attack. This preference is saved automatically.")
-                }
-                Label {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: SharedUi.Theme.secondaryText
-                    text: qsTr("Test your instrument with a sustained sound, such as an organ. Release all keys and the sustain pedal. A two-second note will play on the selected MIDI output channels; its tuning changes halfway through. The previous tuning is restored afterwards.")
-                }
-                Button {
-                    objectName: "retuningTestButton"
-                    text: TuningController.retuningTestRunning ? qsTr("Stop test") : qsTr("Test held-note tuning")
-                    onClicked: {
-                        testAnswer.text = ""
-                        if (TuningController.retuningTestRunning) TuningController.cancelRetuningTest()
-                        else TuningController.startRetuningTest()
+                    Layout.preferredWidth: 1
+                    Layout.alignment: Qt.AlignTop
+
+                    CheckBox {
+                        objectName: "retriggerHeldNotesSelector"
+                        text: qsTr("Retrigger held notes")
+                        Layout.fillWidth: true
+                        checked: TuningController.retriggerHeldNotes
+                        onToggled: TuningController.retriggerHeldNotes = checked
                     }
-                }
-                Label {
-                    objectName: "retuningTestStatus"
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: SharedUi.Theme.text
-                    text: TuningController.retuningTestMessage
-                    visible: text.length > 0
-                }
-                Flow {
-                    Layout.fillWidth: true
-                    spacing: 8
-                    visible: TuningController.retuningTestAwaitingAnswer
-                    Button {
-                        text: qsTr("Yes, the pitch changed")
-                        onClicked: testAnswer.text = qsTr("The instrument updates held notes itself. You can disable retriggering to avoid another attack.")
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: SharedUi.Theme.secondaryText
+                        text: qsTr("Restart held notes when their tuning changes.")
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: SharedUi.Theme.secondaryText
+                        text: qsTr("Test with a sustained sound and release keys and pedals.")
                     }
                     Button {
-                        text: qsTr("No, it stayed the same")
-                        onClicked: testAnswer.text = qsTr("Keep retriggering enabled if held notes should follow tuning changes. Disable it if you prefer the original pitch to continue until release.")
+                        objectName: "retuningTestButton"
+                        text: TuningController.retuningTestRunning ? qsTr("Stop test") : qsTr("Test held-note tuning")
+                        onClicked: {
+                            testAnswer.text = ""
+                            if (TuningController.retuningTestRunning) TuningController.cancelRetuningTest()
+                            else TuningController.startRetuningTest()
+                        }
                     }
-                    Button {
-                        text: qsTr("I could not tell")
-                        onClicked: testAnswer.text = qsTr("Try again with a sustained sound. If you heard no note, check the MIDI output and channels. The setting has not been changed.")
+                    Label {
+                        objectName: "retuningTestStatus"
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: SharedUi.Theme.text
+                        text: TuningController.retuningTestMessage
+                        visible: text.length > 0
                     }
-                }
-                Label {
-                    id: testAnswer
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: SharedUi.Theme.secondaryText
-                    visible: text.length > 0 && TuningController.retuningTestAwaitingAnswer
+                    Flow {
+                        Layout.fillWidth: true
+                        spacing: 8
+                        visible: TuningController.retuningTestAwaitingAnswer
+                        Button {
+                            text: qsTr("Yes, the pitch changed")
+                            onClicked: testAnswer.text = qsTr("You can disable retriggering.")
+                        }
+                        Button {
+                            text: qsTr("No, it stayed the same")
+                            onClicked: testAnswer.text = qsTr("Enable retriggering to update held notes.")
+                        }
+                        Button {
+                            text: qsTr("I could not tell")
+                            onClicked: testAnswer.text = qsTr("Try a sustained sound and check the MIDI output.")
+                        }
+                    }
+                    Label {
+                        id: testAnswer
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: SharedUi.Theme.secondaryText
+                        visible: text.length > 0 && TuningController.retuningTestAwaitingAnswer
+                    }
                 }
             }
 
@@ -102,7 +178,7 @@ Rectangle {
                 Layout.fillWidth: true
 
                 Label {
-                    text: qsTr("Record MIDI notes and pedal events for timing analysis. Start before playing and stop after releasing all keys. No audio is recorded.")
+                    text: qsTr("Record MIDI events for analysis. No audio.")
                     Layout.fillWidth: true
                     wrapMode: Text.WordWrap
                     color: SharedUi.Theme.secondaryText
@@ -150,6 +226,7 @@ Rectangle {
                     visible: text.length > 0
                     readOnly: true
                     selectByMouse: true
+                    Layout.maximumWidth: 560
                     wrapMode: TextEdit.WrapAnywhere
                     Layout.fillWidth: true
                     Accessible.name: qsTr("Recording file")
@@ -171,6 +248,7 @@ Rectangle {
                     id: namingMode
                     objectName: "noteNamingModeSelector"
                     Layout.fillWidth: true
+                    Layout.maximumWidth: 400
                     model: [
                         qsTr("Cycle of fifths"),
                         qsTr("Simplified names and +/-")
@@ -187,16 +265,11 @@ Rectangle {
                     wrapMode: Text.WordWrap
                     color: SharedUi.Theme.secondaryText
                     text: namingMode.currentIndex === 0
-                        ? qsTr("Names follow the cycle of fifths, with as many sharps or flats as needed.")
-                        : qsTr("Simplify the tuning centre to at most two accidentals, using + or - for each EDO step when needed. Derive the other eleven selected names from its exact intervals, allowing additional accidentals and sharing its step modifier. Unselected notes use the nearest name with at most two accidentals.")
+                        ? qsTr("Names follow the cycle of fifths.")
+                        : qsTr("Simplified centre names with +/-; exact interval names for selected notes.")
                 }
 
-                Label {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: SharedUi.Theme.secondaryText
-                    text: qsTr("This preference is saved automatically and applies to all displayed note names.")
-                }
+
             }
         }
     }
