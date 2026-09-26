@@ -50,6 +50,13 @@ void sendTuningSysEx(
   const Config& config,
   double globalOffsetCents)
 {
+  sendTuningTable(out, channelMask,
+    computeMtsTable(edo, fifthStep, config, globalOffsetCents));
+}
+
+bool sendTuningTable(IMidiOut& out, uint16_t channelMask,
+  const std::array<uint16_t, 12>& table)
+{
   uint8_t ff = 0;
   uint8_t gg = 0;
   uint8_t hh = 0;
@@ -67,9 +74,6 @@ void sendTuningSysEx(
     else
       ff |= uint8_t(1u << (channelOneBased - 15));
   }
-
-  const auto table = computeMtsTable(
-    edo, fifthStep, config, globalOffsetCents);
 
   std::vector<uint8_t> sysex;
   sysex.reserve(33);
@@ -89,7 +93,7 @@ void sendTuningSysEx(
   }
 
   sysex.push_back(0xF7);
-  out.sendSysEx(sysex);
+  return out.sendSysEx(sysex);
 }
 
 void sendNoteOn(

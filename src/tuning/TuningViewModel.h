@@ -12,6 +12,10 @@ class TuningViewModel final : public QObject
 {
   Q_OBJECT
 
+  Q_PROPERTY(bool retriggerHeldNotes READ retriggerHeldNotes WRITE setRetriggerHeldNotes NOTIFY tuningStateChanged)
+  Q_PROPERTY(bool retuningTestRunning READ retuningTestRunning NOTIFY tuningStateChanged)
+  Q_PROPERTY(bool retuningTestAwaitingAnswer READ retuningTestAwaitingAnswer NOTIFY tuningStateChanged)
+  Q_PROPERTY(QString retuningTestMessage READ retuningTestMessage NOTIFY tuningStateChanged)
   Q_PROPERTY(int noteNamingMode READ noteNamingMode WRITE setNoteNamingMode NOTIFY tuningStateChanged)
   Q_PROPERTY(int edoIndex READ edoIndex WRITE setEdoIndex NOTIFY tuningStateChanged)
   Q_PROPERTY(int edo READ edo NOTIFY tuningStateChanged)
@@ -33,6 +37,14 @@ public:
   explicit TuningViewModel(
     TuningController* worker,
     QObject* parent = nullptr);
+
+  bool retriggerHeldNotes() const { return state_.retriggerHeldNotes; }
+  bool retuningTestRunning() const { return state_.retuningTestRunning; }
+  bool retuningTestAwaitingAnswer() const { return state_.retuningTestAwaitingAnswer; }
+  QString retuningTestMessage() const { return state_.retuningTestMessage; }
+  void setRetriggerHeldNotes(bool enabled);
+  Q_INVOKABLE void startRetuningTest();
+  Q_INVOKABLE void cancelRetuningTest();
 
   int noteNamingMode() const { return state_.noteNamingMode; }
   void setNoteNamingMode(int mode);

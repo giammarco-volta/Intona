@@ -32,6 +32,10 @@ struct TuningUiSnapshot
   QVariantList circleEntries;
   QVariantList presetEntries;
   int currentPresetIndex = -1;
+  bool retriggerHeldNotes = true;
+  bool retuningTestRunning = false;
+  bool retuningTestAwaitingAnswer = false;
+  QString retuningTestMessage;
   bool adaptingEnabled = false;
   QString aftertouchText;
   bool aftertouchEnabled = false;
@@ -109,6 +113,11 @@ public:
     MidiController* midiController,
     QObject* parent = nullptr);
 
+  bool retriggerHeldNotes() const { return retriggerHeldNotes_; }
+  void setRetriggerHeldNotes(bool enabled);
+  void startRetuningTest();
+  void cancelRetuningTest();
+
   int noteNamingMode() const { return static_cast<int>(noteNamingMode_); }
   void setNoteNamingMode(int mode);
 
@@ -159,6 +168,15 @@ signals:
 
 private:
   MidiController* midiController_ = nullptr;
+  bool retriggerHeldNotes_ = true;
+  QTimer* retuningTestTimer_ = nullptr;
+  int retuningTestStage_ = 0;
+  uint16_t retuningTestChannels_ = 0;
+  std::array<uint16_t, 12> retuningTestTable_{};
+  bool retuningTestAwaitingAnswer_ = false;
+  QString retuningTestMessage_;
+  void advanceRetuningTest();
+  void finishRetuningTest(bool completed);
   NoteNamingMode noteNamingMode_ = NoteNamingMode::Fifths;
   int edoIndex_ = 10;
   Config currentConfig_;

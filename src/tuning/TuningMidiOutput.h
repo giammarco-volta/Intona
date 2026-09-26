@@ -3,6 +3,7 @@
 #include "../Config.hpp"
 
 #include <cstdint>
+#include <array>
 
 class IMidiOut;
 
@@ -13,6 +14,9 @@ void sendRpnCoarseFineTuning(
   IMidiOut& out,
   uint16_t channelMask,
   double cents);
+
+bool sendTuningTable(IMidiOut& out, uint16_t channelMask,
+  const std::array<uint16_t, 12>& table);
 
 void sendTuningSysEx(
   IMidiOut& out,

@@ -32,6 +32,72 @@ Rectangle {
             }
 
             SharedUi.FormSection {
+                title: qsTr("Held notes")
+                Layout.fillWidth: true
+
+                CheckBox {
+                    objectName: "retriggerHeldNotesSelector"
+                    text: qsTr("Retrigger held notes")
+                    Layout.fillWidth: true
+                    checked: TuningController.retriggerHeldNotes
+                    onToggled: TuningController.retriggerHeldNotes = checked
+                }
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: SharedUi.Theme.secondaryText
+                    text: qsTr("When enabled, adaptive tuning stops and restarts affected notes around the tuning change. When disabled, Intona sends only the tuning: the instrument may update held notes itself, or apply the new pitch only at the next attack. This preference is saved automatically.")
+                }
+                Label {
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: SharedUi.Theme.secondaryText
+                    text: qsTr("Test your instrument with a sustained sound, such as an organ. Release all keys and the sustain pedal. A two-second note will play on the selected MIDI output channels; its tuning changes halfway through. The previous tuning is restored afterwards.")
+                }
+                Button {
+                    objectName: "retuningTestButton"
+                    text: TuningController.retuningTestRunning ? qsTr("Stop test") : qsTr("Test held-note tuning")
+                    onClicked: {
+                        testAnswer.text = ""
+                        if (TuningController.retuningTestRunning) TuningController.cancelRetuningTest()
+                        else TuningController.startRetuningTest()
+                    }
+                }
+                Label {
+                    objectName: "retuningTestStatus"
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: SharedUi.Theme.text
+                    text: TuningController.retuningTestMessage
+                    visible: text.length > 0
+                }
+                Flow {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    visible: TuningController.retuningTestAwaitingAnswer
+                    Button {
+                        text: qsTr("Yes, the pitch changed")
+                        onClicked: testAnswer.text = qsTr("The instrument updates held notes itself. You can disable retriggering to avoid another attack.")
+                    }
+                    Button {
+                        text: qsTr("No, it stayed the same")
+                        onClicked: testAnswer.text = qsTr("Keep retriggering enabled if held notes should follow tuning changes. Disable it if you prefer the original pitch to continue until release.")
+                    }
+                    Button {
+                        text: qsTr("I could not tell")
+                        onClicked: testAnswer.text = qsTr("Try again with a sustained sound. If you heard no note, check the MIDI output and channels. The setting has not been changed.")
+                    }
+                }
+                Label {
+                    id: testAnswer
+                    Layout.fillWidth: true
+                    wrapMode: Text.WordWrap
+                    color: SharedUi.Theme.secondaryText
+                    visible: text.length > 0 && TuningController.retuningTestAwaitingAnswer
+                }
+            }
+
+            SharedUi.FormSection {
                 title: qsTr("Record a performance")
                 Layout.fillWidth: true
 

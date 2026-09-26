@@ -46,8 +46,11 @@ cancels dependent changes; later input events remain available as pending notes.
 Note Off records evidence; it does not initiate a new harmonic search.
 
 The core takes explicit times and never sees future releases. The controller
-owns a precise Qt timer and sends Note Off / tuning / Note On for still-sounding
-notes whose EDO pitch changes, preserving velocity and channel selection. Newly
+owns a precise Qt timer. With Settings > Held notes > Retrigger held notes enabled
+(the saved default), it sends Note Off / tuning / Note On for still-sounding notes
+whose EDO pitch changes, preserving velocity and channel selection. With that
+option disabled, it sends only tuning; the instrument determines whether already
+sounding voices change pitch. The choice does not alter adaptation or pivot rules. Newly
 arriving notes are forwarded once, after tuning; released notes are never
 restarted. Manual context changes and toggling RT Adapting cancel outstanding deadlines.
 
@@ -75,3 +78,19 @@ failure merely because it sounded before the evidence arrived. Diagnose whether
 the later decision and any dependent interpretations are corrected, and whether
 only still-held notes are retriggered. The core's `notes()`, `stableCenter()`,
 `provisional()` and `nextDeadline()` expose the useful state for a replay/debugger.
+
+## Instrument held-note test
+
+Settings can play MIDI note 60 at velocity 80 on the selected output channels.
+It sends the current real-time MTS Scale/Octave Tuning (2-byte, sub-ID 08/09)
+table, starts the note, changes only its C-class tuning by approximately 80 cents
+after one second, and releases the note after another second. It then restores
+the exact prior table. The test never retriggers at the midpoint, even if the
+retrigger preference is enabled. Its synthetic events bypass the adaptive engine
+and input recorder. The user's audible report offers guidance, not an automatic
+preference change; use a sustained patch and release keys and sustain pedal.
+
+Starting while performance notes are held is rejected. Playing, cancelling,
+changing tuning/output channels/port or shutting down stops the probe and attempts
+to restore tuning before closing the output. Pending verification resumes after
+the test. Send failures do not produce a successful-result question.

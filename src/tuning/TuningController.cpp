@@ -13,6 +13,7 @@
 #include <QTimer>
 
 #include "../StringUtilities.hpp"
+#include "IMidiOut.h"
 
 namespace Intona::Tuning
 {
@@ -38,6 +39,14 @@ TuningController::TuningController(
   scaleTriads_.admissible = [this](const Config& candidate) {
     return findGlobalOffsetCents(candidate, kNtetMappings[edoIndex_], currentGlobalOffsetCents_).has_value();
   };
+
+  retriggerHeldNotes_ = settings.value("retriggerHeldNotes", true).toBool();
+  retuningTestTimer_ = new QTimer(this);
+  retuningTestTimer_->setSingleShot(true);
+  retuningTestTimer_->setTimerType(Qt::PreciseTimer);
+  connect(retuningTestTimer_, &QTimer::timeout, this, &TuningController::advanceRetuningTest);
+  connect(midiController_, &MidiController::midiOutputAboutToChange,
+    this, &TuningController::cancelRetuningTest);
 
   const int savedNamingMode = settings.value("noteNamingMode", 0).toInt();
   if (savedNamingMode == static_cast<int>(NoteNamingMode::LimitedAccidentals))
@@ -735,6 +744,10 @@ QVariantList TuningController::pressedKeys() const
 TuningUiSnapshot TuningController::uiSnapshot() const
 {
   TuningUiSnapshot snapshot;
+  snapshot.retriggerHeldNotes = retriggerHeldNotes_;
+  snapshot.retuningTestRunning = retuningTestStage_ != 0;
+  snapshot.retuningTestAwaitingAnswer = retuningTestAwaitingAnswer_;
+  snapshot.retuningTestMessage = retuningTestMessage_;
   snapshot.noteNamingMode = noteNamingMode();
   snapshot.edoIndex = edoIndex();
   snapshot.edo = edo();
@@ -757,6 +770,7 @@ TuningUiSnapshot TuningController::uiSnapshot() const
 void TuningController::sendCurrentTuning(
   bool sendGlobalOffset)
 {
+  cancelRetuningTest();
   if (!midiController_)
     return;
 
@@ -787,6 +801,102 @@ void TuningController::sendCurrentTuning(
     currentGlobalOffsetCents_);
 }
 
+void TuningController::setRetriggerHeldNotes(bool enabled)
+{
+  if (retriggerHeldNotes_ == enabled) return;
+  retriggerHeldNotes_ = enabled;
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
+  settings.setValue("status/retriggerHeldNotes", enabled);
+  emit tuningStateChanged();
+}
+
+void TuningController::startRetuningTest()
+{
+  if (retuningTestStage_) return;
+  retuningTestAwaitingAnswer_ = false;
+  auto* out = midiController_->midiOut();
+  const auto channels = uint16_t(midiController_->midiOutChannelMask());
+  if (!out || !channels || !activeNotes_.empty())
+  {
+    retuningTestMessage_ = tr("Release all keys and select a MIDI output channel before starting the test.");
+    emit tuningStateChanged();
+    return;
+  }
+  // Resolve pending rollback before snapshotting the tuning being tested.
+  if (adaptingEnabled_) { scaleTriads_.advance(eventNow()); applyScaleConfig(); }
+  scaleVerificationTimer_->stop();
+  const auto& mapping = kNtetMappings[edoIndex_];
+  retuningTestTable_ = computeMtsTable(mapping.N, mapping.fifthStep,
+    currentConfig_, currentGlobalOffsetCents_);
+  retuningTestChannels_ = channels;
+  if (!sendTuningTable(*out, channels, retuningTestTable_))
+  {
+    retuningTestMessage_ = tr("Unable to send the test. Check the MIDI output connection.");
+    emit tuningStateChanged();
+    scheduleScaleVerification();
+    return;
+  }
+  retuningTestStage_ = 1;
+  bool sent = true;
+  for (int channel = 0; channel < 16; ++channel)
+    if (channels & (uint16_t{1} << channel))
+      sent = out->sendShort(0x90 | channel, 60, 80) && sent;
+  if (!sent)
+  {
+    finishRetuningTest(false);
+    retuningTestMessage_ = tr("Unable to send the test. Check the MIDI output connection.");
+  }
+  else
+  {
+    retuningTestMessage_ = tr("Listen: the pitch should change halfway through the two-second note.");
+    retuningTestTimer_->start(1000);
+  }
+  emit tuningStateChanged();
+}
+
+void TuningController::advanceRetuningTest()
+{
+  if (retuningTestStage_ == 1)
+  {
+    auto changed = retuningTestTable_;
+    // An 80-cent change within MTS's +/-100-cent range, on C only.
+    changed[0] = uint16_t(int(changed[0]) + (changed[0] <= 8192 ? 6554 : -6554));
+    if (!sendTuningTable(*midiController_->midiOut(), retuningTestChannels_, changed))
+    {
+      finishRetuningTest(false);
+      retuningTestMessage_ = tr("Unable to send the tuning change. Check the MIDI output connection.");
+      emit tuningStateChanged();
+      return;
+    }
+    retuningTestStage_ = 2;
+    retuningTestTimer_->start(1000);
+  }
+  else if (retuningTestStage_ == 2) finishRetuningTest(true);
+}
+
+void TuningController::cancelRetuningTest()
+{
+  if (retuningTestStage_) finishRetuningTest(false);
+}
+
+void TuningController::finishRetuningTest(bool completed)
+{
+  retuningTestTimer_->stop();
+  retuningTestStage_ = 0;
+  if (auto* out = midiController_->midiOut())
+  {
+    for (int channel = 0; channel < 16; ++channel)
+      if (retuningTestChannels_ & (uint16_t{1} << channel))
+        sendNoteOff(*out, uint8_t(channel), 60, 0);
+    completed = sendTuningTable(*out, retuningTestChannels_, retuningTestTable_) && completed;
+  }
+  retuningTestAwaitingAnswer_ = completed;
+  retuningTestMessage_ = completed ? tr("Did you hear the pitch change while the note was sounding?")
+    : tr("Test interrupted. The previous tuning has been restored where the MIDI connection is available.");
+  scheduleScaleVerification();
+  emit tuningStateChanged();
+}
+
 void TuningController::rebuildPressedKeys()
 {
   keyPressedMask12_ = 0;
@@ -808,6 +918,7 @@ void TuningController::handleMidiNoteOn(int note, int velocity, quint32 timeMs)
   IMidiOut* out = midiController_->midiOut();
   if (!out)
     return;
+  cancelRetuningTest();
   observeEventClock(timeMs);
 
   // A repeated Note On is a fresh articulation, never the old note's pivot.
@@ -843,6 +954,7 @@ void TuningController::handleMidiNoteOff(int note, int velocity, quint32 timeMs)
   IMidiOut* out = midiController_->midiOut();
   if (!out)
     return;
+  cancelRetuningTest();
   observeEventClock(timeMs);
 
   const auto active = std::find_if(activeNotes_.begin(), activeNotes_.end(),
@@ -894,6 +1006,7 @@ void TuningController::handleMidiChannelMessage(
   if (!out)
     return;
 
+  cancelRetuningTest();
   const quint32 channelMask =
     midiController_->midiOutChannelMask();
 
@@ -951,7 +1064,7 @@ void TuningController::applyScaleConfig()
   const auto channels = midiController_->midiOutChannelMask();
   std::vector<ActiveNote> retrigger;
   for (const auto& note : activeNotes_)
-    if (mod((candidate.valueForKey[note.key] - note.interpretedValue) * mapping.fifthStep, mapping.N) != 0)
+    if (retriggerHeldNotes_ && mod((candidate.valueForKey[note.key] - note.interpretedValue) * mapping.fifthStep, mapping.N) != 0)
       retrigger.push_back(note);
   for (const auto& note : retrigger)
     for (int channel=0; channel<16; ++channel) if (channels & (quint32{1} << channel))
@@ -999,6 +1112,7 @@ void TuningController::sendAllNotesOff()
   if (!out)
     return;
 
+  cancelRetuningTest();
   const quint32 channelMask =
     midiController_->midiOutChannelMask();
 

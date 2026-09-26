@@ -46,6 +46,10 @@ int main(int argc, char** argv)
   engine.rootContext()->setContextProperty("PerformanceRecorder", &recorder);
   QQmlPropertyMap settings;
   settings.insert("noteNamingMode", 0);
+  settings.insert("retriggerHeldNotes", true);
+  settings.insert("retuningTestRunning", false);
+  settings.insert("retuningTestAwaitingAnswer", false);
+  settings.insert("retuningTestMessage", "");
   engine.rootContext()->setContextProperty("TuningController", &settings);
   QQmlComponent component(&engine);
   const auto pages = QUrl::fromLocalFile(QStringLiteral(INTONA_SOURCE_DIR "/src/qml/pages")).toString();
@@ -77,6 +81,12 @@ ApplicationWindow {
     std::cerr << component.errorString().toStdString() << "Missing window or selector\n";
     return 1;
   }
+  auto* retrigger = root->findChild<QObject*>("retriggerHeldNotesSelector");
+  if (!retrigger || !retrigger->property("checked").toBool()
+      || !root->findChild<QObject*>("retuningTestButton")) return 30;
+  retrigger->setProperty("checked", false);
+  QMetaObject::invokeMethod(retrigger, "toggled");
+  if (settings.value("retriggerHeldNotes").toBool()) return 31;
   auto* threshold = root->findChild<QObject*>("dirtyNoteThresholdSelector");
   auto* recordButton = root->findChild<QObject*>("recordingToggle");
   auto* recordLabel = root->findChild<QObject*>("recordingLabel");
@@ -120,6 +130,12 @@ ApplicationWindow {
   window->resize(360,700);
   settle();
   if(!screenshotDir.isEmpty() && !window->grabWindow().save(screenshotDir+"/settings-portrait.png"))return 24;
+  settings.insert("retuningTestAwaitingAnswer", true);
+  settings.insert("retuningTestMessage", "Did you hear the pitch change while the note was sounding?");
+  settle();
+  if (!root->findChild<QObject*>("retuningTestStatus")->property("visible").toBool()) return 32;
+  if (!screenshotDir.isEmpty()
+      && !window->grabWindow().save(screenshotDir + "/settings-test-result.png")) return 33;
   // Exercise the real shared rail and its packaged SVG with the software
   // renderer: a shader-only tint used to leave this icon completely blank.
   QQmlComponent navigation(&engine);

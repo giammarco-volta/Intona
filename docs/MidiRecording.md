@@ -24,3 +24,5 @@ Session start includes UTC time, label and settings. Context snapshots include t
 Pair notes by channel and MIDI note, preserve event order for equal timestamps, and report unmatched releases, unfinished notes and repeated attacks explicitly. Pedal events distinguish physical key release from sustained sound. The recorder preserves raw evidence rather than classifying notes as dirty or overlaps as intentional.
 
 `IntonaMidiRecording` tests short notes, equal timestamps, overlaps, velocity-zero releases, pedal timestamps, wrap preservation, separate takes, shutdown and file errors. `IntonaSettingsPage` exercises Start/Stop using a temporary directory.
+
+The context also records `retrigger_held_notes`. The Settings instrument test sends output directly and does not create recorded input events.

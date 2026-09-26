@@ -21,6 +21,23 @@ TuningViewModel::TuningViewModel(
 }
 
 
+void TuningViewModel::setRetriggerHeldNotes(bool enabled)
+{
+  QMetaObject::invokeMethod(worker_, [worker = worker_, enabled]() {
+    worker->setRetriggerHeldNotes(enabled);
+  }, Qt::QueuedConnection);
+}
+
+void TuningViewModel::startRetuningTest()
+{
+  QMetaObject::invokeMethod(worker_, &TuningController::startRetuningTest, Qt::QueuedConnection);
+}
+
+void TuningViewModel::cancelRetuningTest()
+{
+  QMetaObject::invokeMethod(worker_, &TuningController::cancelRetuningTest, Qt::QueuedConnection);
+}
+
 void TuningViewModel::setNoteNamingMode(int mode)
 {
   QMetaObject::invokeMethod(

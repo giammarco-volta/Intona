@@ -57,6 +57,7 @@ MidiController::~MidiController()
 
 void MidiController::stop()
 {
+  emit midiOutputAboutToChange();
   if (midiIn_)
   {
     midiIn_->setCallback({});
@@ -154,6 +155,7 @@ void MidiController::setMidiInPort(const QString& portName)
 void MidiController::setMidiOutPort(const QString& portName)
 {
   const bool changed = midiOutPort_ != portName;
+  emit midiOutputAboutToChange();
 
   if (midiOut_)
     midiOut_->close();
@@ -280,6 +282,7 @@ void MidiController::refreshMidiOutPorts()
 
   if (midiOutPorts_.isEmpty())
   {
+    emit midiOutputAboutToChange();
     midiOut_->close();
     setMidiOutStatus(tr("No MIDI OUT devices found"));
     return;
@@ -293,6 +296,7 @@ void MidiController::refreshMidiOutPorts()
 
   if (!midiOutPorts_.contains(midiOutPort_))
   {
+    emit midiOutputAboutToChange();
     midiOut_->close();
     setMidiOutStatus(
       tr("MIDI OUT device not available: %1").arg(midiOutPort_));
@@ -326,6 +330,7 @@ void MidiController::setMidiOutChannelEnabled(
   if (newMask == midiOutChannelMask_)
     return;
 
+  emit midiOutputAboutToChange();
   midiOutChannelMask_ = newMask;
 
   QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");

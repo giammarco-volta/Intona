@@ -45,6 +45,8 @@ class Output : public IMidiOut
 {
 public:
   std::vector<Message> messages;
+  std::vector<std::vector<uint8_t>> sysexes;
+  bool acceptMessages = true;
   QStringList listOutputs() const override
   {
     throw std::runtime_error("No MIDI hardware access");
@@ -59,12 +61,13 @@ public:
   bool sendShort(uint8_t s, uint8_t n, uint8_t v) override
   {
     messages.push_back({s, n, v});
-    return true;
+    return acceptMessages;
   }
-  bool sendSysEx(const std::vector<uint8_t> &) override
+  bool sendSysEx(const std::vector<uint8_t>& bytes) override
   {
     messages.push_back({0xf0, 0, 0});
-    return true;
+    sysexes.push_back(bytes);
+    return acceptMessages;
   }
 };
 void replay(const QString &path)
@@ -343,6 +346,111 @@ void midiTests()
   for (int note : {65, 68, 60}) midi.midiNoteOffReceived(note, 0, 9200);
   std::cout << "PASS: MIDI ordering, immediate output, 70ms rollback, held triad pivots, RT off and migration.\n";
 }
+void retriggerPreferenceAndProbeTests()
+{
+  auto* output = new Output;
+  MidiController midi{std::unique_ptr<IMidiOut>(output), 0x8101};
+  TuningController controller(&midi);
+  require(controller.retriggerHeldNotes(), "Retrigger stays enabled by default");
+  controller.setRetriggerHeldNotes(false);
+  {
+    auto* second = new Output;
+    MidiController other{std::unique_ptr<IMidiOut>(second), 1};
+    TuningController restored(&other);
+    require(!restored.retriggerHeldNotes(), "Retrigger preference persists");
+  }
+  for (int i = 0; i < int(kNtetMappings.size()); ++i)
+    if (kNtetMappings[i].N == 31) controller.setEdoIndex(i);
+  controller.setAdaptingEnabled(true);
+  controller.selectTuningCenter(2);
+  midi.midiNoteOnReceived(68, 91, 1000);
+  midi.midiNoteOnReceived(65, 83, 1010);
+  output->messages.clear();
+  midi.midiNoteOnReceived(60, 79, 1020);
+  require(controller.keyValues()[8].toInt() == -4, "Disabling retrigger leaves adaptive choice unchanged");
+  require(std::any_of(output->messages.begin(), output->messages.end(), [](auto m) { return m.status == 0xf0; }),
+    "Disabled retrigger still sends tuning");
+  require(std::none_of(output->messages.begin(), output->messages.end(), [](auto m) {
+    return (m.status & 0xf0) == 0x80 || ((m.status & 0xf0) == 0x90 && m.note != 60);
+  }), "Held notes receive no off/on when retrigger is disabled");
+  wait(90);
+  output->messages.clear();
+  controller.startRetuningTest();
+  require(!controller.uiSnapshot().retuningTestRunning && output->messages.empty(),
+    "Test cannot interfere with held performance notes");
+  for (int n : {68, 65, 60}) midi.midiNoteOffReceived(n, 0, 1200);
+  controller.selectTuningCenter(0);
+  const auto values = controller.keyValues();
+  const int center = controller.tuningCenter();
+  output->messages.clear(); output->sysexes.clear();
+  controller.startRetuningTest();
+  require(controller.uiSnapshot().retuningTestRunning, "Probe starts with output");
+  const auto initialCount = output->messages.size();
+  controller.startRetuningTest();
+  require(output->messages.size() == initialCount, "Repeated start cannot overlap probes");
+  wait(850);
+  require(output->sysexes.size() == 1, "No tuning change before first second");
+  wait(300);
+  require(output->sysexes.size() == 2 && controller.uiSnapshot().retuningTestRunning,
+    "Probe sends tuning while note still sounds");
+  wait(1000);
+  require(!controller.uiSnapshot().retuningTestRunning && controller.uiSnapshot().retuningTestAwaitingAnswer,
+    "Two-second probe completes and asks for human observation");
+  require(output->sysexes.size() == 3 && output->sysexes.front() == output->sysexes.back(),
+    "Probe restores exact prior tuning table");
+  const auto& before = output->sysexes[0];
+  const auto& changed = output->sysexes[1];
+  require(before.size() == 33 && before[1] == 0x7f && before[3] == 8 && before[4] == 9 &&
+    before[5] == 2 && before[6] == 2 && before[7] == 1 && before.back() == 0xf7,
+    "Probe uses production real-time MTS scale/octave format and selected channels");
+  require(std::equal(before.begin() + 10, before.end(), changed.begin() + 10),
+    "Only C tuning changes in probe");
+  const int a = before[8] * 128 + before[9], b = changed[8] * 128 + changed[9];
+  require(std::abs(a - b) == 6554, "Audible 80-cent change");
+  for (int channel : {0, 8, 15})
+  {
+    require(std::count_if(output->messages.begin(), output->messages.end(), [channel](auto m) {
+      return m.status == (0x90 | channel) && m.note == 60 && m.velocity == 80;
+    }) == 1, "Probe never retriggers the held note");
+    require(std::count_if(output->messages.begin(), output->messages.end(), [channel](auto m) {
+      return m.status == (0x80 | channel) && m.note == 60;
+    }) == 1, "Probe ends its note on each selected channel");
+  }
+  require(controller.keyValues() == values && controller.tuningCenter() == center &&
+    !controller.pressedKeys().contains(true), "Probe does not enter musical or held-note state");
+  require(!controller.retriggerHeldNotes(), "Test never changes the user's retrigger choice");
+
+  output->messages.clear(); output->sysexes.clear();
+  controller.startRetuningTest();
+  wait(1100);
+  controller.cancelRetuningTest();
+  require(!controller.uiSnapshot().retuningTestRunning && !controller.uiSnapshot().retuningTestAwaitingAnswer &&
+    output->sysexes.front() == output->sysexes.back(), "Cancellation after pitch change restores tuning");
+  const auto stoppedCount = output->messages.size();
+  wait(1100);
+  require(output->messages.size() == stoppedCount, "Cancelled timer sends nothing later");
+  controller.startRetuningTest();
+  output->messages.clear();
+  midi.midiNoteOnReceived(60, 99, 5000);
+  require(!controller.uiSnapshot().retuningTestRunning && !output->messages.empty() &&
+    output->messages.front().status == 0x80 && output->messages.back().velocity == 99,
+    "Incoming playing stops probe before forwarding player's note");
+  midi.midiNoteOffReceived(60, 0, 5200);
+  controller.startRetuningTest();
+  midi.setMidiOutChannelEnabled(9, false);
+  require(!controller.uiSnapshot().retuningTestRunning, "Changing output channels cancels probe");
+  controller.startRetuningTest();
+  midi.stop();
+  require(!controller.uiSnapshot().retuningTestRunning, "Shutdown cancels probe before closing output");
+  output->acceptMessages = false;
+  controller.startRetuningTest();
+  require(!controller.uiSnapshot().retuningTestRunning && !controller.uiSnapshot().retuningTestAwaitingAnswer,
+    "Disconnected output does not produce a misleading test result");
+  output->acceptMessages = true;
+  controller.setRetriggerHeldNotes(true);
+  std::cout << "PASS: saved retrigger preference, tuning-only mode and two-second MIDI probe lifecycle.\n";
+}
+
 void pressedKeyDisplayTests()
 {
   {
@@ -450,6 +558,7 @@ int main(int argc, char **argv)
       triadPivotTests();
       replay(QStringLiteral(INTONA_SOURCE_DIR "/tests/data/ScaleTriadCases.json"));
       midiTests();
+      retriggerPreferenceAndProbeTests();
       pressedKeyDisplayTests();
       viewModelNotificationTests();
     }

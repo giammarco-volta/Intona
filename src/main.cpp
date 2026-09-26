@@ -116,6 +116,7 @@ int main(int argc, char** argv)
       {"tuning_center", tuningViewModel.tuningCenter()},
       {"key_values", tuningViewModel.keyValues()},
       {"rt_adapting", tuningViewModel.adaptingEnabled()},
+      {"retrigger_held_notes", tuningViewModel.retriggerHeldNotes()},
       {"scale_verification_ms", 70},
       {"adaptive_algorithm", "scales_triads_v1"}});
   };
