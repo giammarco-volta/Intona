@@ -6,6 +6,8 @@
 #include <QQuickStyle>
 #include <QThread>
 #include <QSettings>
+#include <QDir>
+#include <QFileInfo>
 #include <QTemporaryDir>
 #include <QTimer>
 #include <QUuid>
@@ -72,7 +74,13 @@ int main(int argc, char** argv)
     QSettings::setDefaultFormat(QSettings::IniFormat);
     QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, startupSettings->path());
     QSettings::setPath(QSettings::IniFormat, QSettings::SystemScope, startupSettings->path());
-    QSettings settings("NaadaLab", "Intona");
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
+      "NaadaLab", "Intona");
+    // The organization/application-only constructor always uses NativeFormat.
+    // Fail closed if this diagnostic run is not using the temporary INI store.
+    if (settings.format() != QSettings::IniFormat
+        || QFileInfo(settings.fileName()).absolutePath()
+             != QDir(startupSettings->path()).filePath("NaadaLab")) return 2;
     // Enumerate the real backend, but never auto-select/open a hardware port.
     const QString unavailablePort = QStringLiteral("Intona startup check ")
       + QUuid::createUuid().toString();
@@ -108,10 +116,8 @@ int main(int argc, char** argv)
       {"tuning_center", tuningViewModel.tuningCenter()},
       {"key_values", tuningViewModel.keyValues()},
       {"rt_adapting", tuningViewModel.adaptingEnabled()},
-      {"scale_triad_mode", tuningViewModel.useScaleTriadAdapting()},
       {"scale_verification_ms", 70},
-      {"adaptive_algorithm", tuningViewModel.useScaleTriadAdapting()
-        ? "scales_triads_v1" : "legacy_chords_melody"}});
+      {"adaptive_algorithm", "scales_triads_v1"}});
   };
   QObject::connect(&tuningViewModel, &Intona::Tuning::TuningViewModel::tuningStateChanged,
     &performanceRecorder, updateRecordingContext);

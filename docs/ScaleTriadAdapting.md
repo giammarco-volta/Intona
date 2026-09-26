@@ -1,10 +1,11 @@
-# Scale and triad alternative (v1)
+# Scale and triad adaptation (v1)
 
-Settings selects either the existing chord/melody engine or `ScaleTriadAdapting`.
-The new mode replaces the harmonic-cost experiment. Its only timing constant is
-70 ms; the old history controls and duration control are absent from Settings.
-The legacy engine retains its validation-window behavior and saved legacy
-threshold internally, so comparison does not silently change that engine.
+`ScaleTriadAdapting` is the only adaptive tuning engine. RT Adapting on the tuning
+surface enables or disables it; Settings has no algorithm selector. Its only
+timing constant is 70 ms. Old algorithm and threshold preferences are removed
+at startup. There is no general chord recognizer or inferred-key analysis. The tuning center
+is shown only by its gold disc on the circle; the former labels and outer dots
+have been removed.
 
 ## Decisions
 
@@ -48,7 +49,7 @@ The core takes explicit times and never sees future releases. The controller
 owns a precise Qt timer and sends Note Off / tuning / Note On for still-sounding
 notes whose EDO pitch changes, preserving velocity and channel selection. Newly
 arriving notes are forwarded once, after tuning; released notes are never
-restarted. Manual context changes and mode changes cancel outstanding deadlines.
+restarted. Manual context changes and toggling RT Adapting cancel outstanding deadlines.
 
 `prune()` retains held notes, the newest released occurrence of each class,
 recent releases and any notes referenced by a pending rollback or transition.
@@ -67,7 +68,7 @@ The same executable accepts a JSON fixture path for full recorded performances.
 Both complete Bach recordings were replayed, totaling 2,205 attacks (8,820 checks
 at four anchors), with matching Python/C++ decisions. Recordings remain outside
 the repository. The recorder still captures original input events upstream of
-tuning; its context identifies `scales_triads_v1` or `legacy_chords_melody`.
+tuning; its context identifies `scales_triads_v1`.
 
 A provisional spelling later corrected by new evidence is not an algorithmic
 failure merely because it sounded before the evidence arrived. Diagnose whether

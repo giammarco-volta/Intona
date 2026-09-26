@@ -52,8 +52,6 @@ Rectangle {
                     TuningController.availableEdos
                 tuningCenter:
                     TuningController.tuningCenter
-                tuningCenterName:
-                    TuningController.tuningCenterName
                 keyNames: TuningController.keyNames
                 canRaiseKeys: TuningController.canRaiseKeys
                 canLowerKeys: TuningController.canLowerKeys
@@ -64,10 +62,6 @@ Rectangle {
                     TuningController.aftertouchText
                 aftertouchEnabled:
                     TuningController.aftertouchEnabled
-                keyDescription:
-                    TuningController.keyDescription
-                chordDescription:
-                    TuningController.chordDescription
 
                 onEdoSelected: function(index) {
                     TuningController.edoIndex = index

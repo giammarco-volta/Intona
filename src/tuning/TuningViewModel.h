@@ -12,15 +12,11 @@ class TuningViewModel final : public QObject
 {
   Q_OBJECT
 
-  Q_PROPERTY(bool useScaleTriadAdapting READ useScaleTriadAdapting
-             WRITE setUseScaleTriadAdapting NOTIFY tuningStateChanged)
-
   Q_PROPERTY(int noteNamingMode READ noteNamingMode WRITE setNoteNamingMode NOTIFY tuningStateChanged)
   Q_PROPERTY(int edoIndex READ edoIndex WRITE setEdoIndex NOTIFY tuningStateChanged)
   Q_PROPERTY(int edo READ edo NOTIFY tuningStateChanged)
   Q_PROPERTY(QVariantList availableEdos READ availableEdos CONSTANT)
   Q_PROPERTY(int tuningCenter READ tuningCenter NOTIFY tuningStateChanged)
-  Q_PROPERTY(QString tuningCenterName READ tuningCenterName NOTIFY tuningStateChanged)
   Q_PROPERTY(QVariantList keyValues READ keyValues NOTIFY tuningStateChanged)
   Q_PROPERTY(QStringList keyNames READ keyNames NOTIFY tuningStateChanged)
   Q_PROPERTY(QVariantList canRaiseKeys READ canRaiseKeys NOTIFY tuningStateChanged)
@@ -31,17 +27,12 @@ class TuningViewModel final : public QObject
   Q_PROPERTY(bool adaptingEnabled READ adaptingEnabled WRITE setAdaptingEnabled NOTIFY tuningStateChanged)
   Q_PROPERTY(QString aftertouchText READ aftertouchText NOTIFY tuningStateChanged)
   Q_PROPERTY(bool aftertouchEnabled READ aftertouchEnabled NOTIFY tuningStateChanged)
-  Q_PROPERTY(QString keyDescription READ keyDescription NOTIFY tuningStateChanged)
-  Q_PROPERTY(QString chordDescription READ chordDescription NOTIFY tuningStateChanged)
   Q_PROPERTY(QVariantList pressedKeys READ pressedKeys NOTIFY pressedKeysChanged)
 
 public:
   explicit TuningViewModel(
     TuningController* worker,
     QObject* parent = nullptr);
-
-  bool useScaleTriadAdapting() const { return state_.useScaleTriadAdapting; }
-  void setUseScaleTriadAdapting(bool enabled);
 
   int noteNamingMode() const { return state_.noteNamingMode; }
   void setNoteNamingMode(int mode);
@@ -50,7 +41,6 @@ public:
   int edo() const { return state_.edo; }
   QVariantList availableEdos() const { return state_.availableEdos; }
   int tuningCenter() const { return state_.tuningCenter; }
-  QString tuningCenterName() const { return state_.tuningCenterName; }
   QVariantList keyValues() const { return state_.keyValues; }
   QStringList keyNames() const { return state_.keyNames; }
   QVariantList canRaiseKeys() const { return state_.canRaiseKeys; }
@@ -61,8 +51,6 @@ public:
   bool adaptingEnabled() const { return state_.adaptingEnabled; }
   QString aftertouchText() const { return state_.aftertouchText; }
   bool aftertouchEnabled() const { return state_.aftertouchEnabled; }
-  QString keyDescription() const { return state_.keyDescription; }
-  QString chordDescription() const { return state_.chordDescription; }
   QVariantList pressedKeys() const { return state_.pressedKeys; }
 
   void setEdoIndex(int index);

@@ -23,6 +23,13 @@ MidiController::MidiController(std::unique_ptr<IMidiOut> output,
 {
 }
 
+MidiController::MidiController(std::unique_ptr<MidiIn_MonoInterpreter> input,
+  std::unique_ptr<IMidiOut> output, QObject* parent)
+  : QObject(parent), midiIn_(std::move(input)), midiOut_(std::move(output))
+{
+  loadSettings();
+}
+
 void MidiController::start()
 {
   if (!midiIn_)
@@ -111,7 +118,7 @@ void MidiController::setMidiInPort(const QString& portName)
 
   if (changed)
   {
-    QSettings settings("NaadaLab", "Intona");
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
     settings.beginGroup("midi");
     settings.setValue("inPortName", midiInPort_);
     settings.endGroup();
@@ -155,7 +162,7 @@ void MidiController::setMidiOutPort(const QString& portName)
 
   if (changed)
   {
-    QSettings settings("NaadaLab", "Intona");
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
     settings.beginGroup("midi");
     settings.setValue("outPortName", midiOutPort_);
     settings.endGroup();
@@ -203,7 +210,7 @@ void MidiController::setMidiInChannel(int channel)
       static_cast<uint8_t>(midiInChannel_ - 1));
   }
 
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
   settings.beginGroup("midi");
   settings.setValue("midiInChn", midiInChannel_);
   settings.endGroup();
@@ -321,7 +328,7 @@ void MidiController::setMidiOutChannelEnabled(
 
   midiOutChannelMask_ = newMask;
 
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
   settings.beginGroup("midi");
   settings.setValue(
     QString("outChn%1").arg(channel - 1),
@@ -351,7 +358,7 @@ MidiUiSnapshot MidiController::uiSnapshot() const
 
 void MidiController::loadSettings()
 {
-  QSettings settings("NaadaLab", "Intona");
+  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
   settings.beginGroup("midi");
 
   midiInPort_ = settings.value("inPortName").toString();

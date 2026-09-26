@@ -1,8 +1,6 @@
 #pragma once
 
 #include "../Config.hpp"
-#include "../ChordRecognizer.h"
-#include "../TuningCenterFinder.h"
 #include "TuningTypes.h"
 #include "NoteNaming.h"
 #include "ScaleTriadAdapting.h"
@@ -22,14 +20,11 @@ namespace Intona::Tuning
 
 struct TuningUiSnapshot
 {
-  bool useScaleTriadAdapting = false;
-  int dirtyNoteThresholdMs = 100;
   int noteNamingMode = 0;
   int edoIndex = 0;
   int edo = 0;
   QVariantList availableEdos;
   int tuningCenter = Config::invalid;
-  QString tuningCenterName;
   QVariantList keyValues;
   QStringList keyNames;
   QVariantList canRaiseKeys;
@@ -40,21 +35,12 @@ struct TuningUiSnapshot
   bool adaptingEnabled = false;
   QString aftertouchText;
   bool aftertouchEnabled = false;
-  QString keyDescription;
-  QString chordDescription;
   QVariantList pressedKeys;
 };
 
 class TuningController final : public QObject
 {
   Q_OBJECT
-
-  Q_PROPERTY(bool useScaleTriadAdapting READ useScaleTriadAdapting
-             WRITE setUseScaleTriadAdapting NOTIFY tuningStateChanged)
-
-
-  Q_PROPERTY(int dirtyNoteThresholdMs READ dirtyNoteThresholdMs
-             WRITE setDirtyNoteThresholdMs NOTIFY tuningStateChanged)
 
   Q_PROPERTY(int edoIndex
              READ edoIndex
@@ -71,10 +57,6 @@ class TuningController final : public QObject
 
   Q_PROPERTY(int tuningCenter
              READ tuningCenter
-             NOTIFY tuningStateChanged)
-
-  Q_PROPERTY(QString tuningCenterName
-             READ tuningCenterName
              NOTIFY tuningStateChanged)
 
   Q_PROPERTY(QVariantList keyValues
@@ -118,14 +100,6 @@ class TuningController final : public QObject
              READ aftertouchEnabled
              NOTIFY tuningStateChanged)
 
-  Q_PROPERTY(QString keyDescription
-             READ keyDescription
-             NOTIFY tuningStateChanged)
-
-  Q_PROPERTY(QString chordDescription
-             READ chordDescription
-             NOTIFY tuningStateChanged)
-
   Q_PROPERTY(QVariantList pressedKeys
              READ pressedKeys
              NOTIFY tuningStateChanged)
@@ -134,13 +108,6 @@ public:
   explicit TuningController(
     MidiController* midiController,
     QObject* parent = nullptr);
-
-  bool useScaleTriadAdapting() const { return useScaleTriadAdapting_; }
-  void setUseScaleTriadAdapting(bool enabled);
-
-
-  int dirtyNoteThresholdMs() const { return dirtyNoteThresholdMs_; }
-  void setDirtyNoteThresholdMs(int milliseconds);
 
   int noteNamingMode() const { return static_cast<int>(noteNamingMode_); }
   void setNoteNamingMode(int mode);
@@ -153,7 +120,6 @@ public:
   QVariantList availableEdos() const;
 
   int tuningCenter() const;
-  QString tuningCenterName() const;
 
   Q_INVOKABLE void selectTuningCenter(int value);
 
@@ -185,8 +151,6 @@ public:
   bool aftertouchEnabled() const;
   Q_INVOKABLE void cycleAftertouchMode();
 
-  QString keyDescription() const;
-  QString chordDescription() const;
   QVariantList pressedKeys() const;
   TuningUiSnapshot uiSnapshot() const;
 
@@ -202,53 +166,24 @@ private:
   int currentPresetIndex_ = -1;
 
   std::vector<ActiveNote> activeNotes_;
-  int currentKeyTonic_ = Config::invalid;
-  bool currentKeyIsMinor_ = false;
-  int currentChordRoot_ = Config::invalid;
-  bool currentChordNameValid_ = false;
-  QString currentChordSuffix_;
-  int currentChordBass_ = Config::invalid;
 
-  uint8_t minNoteNumberForAdapting_ = 2;
-  ConfigMask pressedMask5_ = 0;
   uint16_t keyPressedMask12_ = 0;
   bool adaptingEnabled_ = true;
-  bool useScaleTriadAdapting_ = false;
   ScaleTriadAdapting scaleTriads_;
   QTimer* scaleVerificationTimer_ = nullptr;
   void scheduleScaleVerification();
   void verifyScaleEvidence();
   void applyScaleConfig();
-  void updateScaleDisplay();
-  QElapsedTimer historyClockElapsed_;
-  bool historyClockStarted_ = false;
-  quint32 historyClockStamp_ = 0;
-  double historyClockValue_ = 0;
-  void observeHistoryClock(quint32 stamp);
-  double historyNow() const;
-  int dirtyNoteThresholdMs_ = 100;
-  QTimer* noteWindowTimer_ = nullptr;
+  QElapsedTimer eventClockElapsed_;
+  bool eventClockStarted_ = false;
+  quint32 eventClockStamp_ = 0;
+  double eventClockValue_ = 0;
+  void observeEventClock(quint32 stamp);
+  double eventNow() const;
   uint64_t nextNoteGeneration_ = 0;
-  struct PendingNote
-  {
-    ActiveNote note;
-    bool released = false;
-    uint32_t durationMs = 0;
-  };
-  // Raw sounding notes are separate from notes admitted to musical reasoning.
-  std::vector<ActiveNote> confirmedNotes_;
-  std::vector<PendingNote> pendingNotes_;
-  std::vector<ActiveNote> releasedNotes_;
-  std::vector<ActiveNote> pivotNotes_;
-  std::optional<Config> chordReference_;
-
   AfterTouch afterTouch_ = AfterTouch::stepUp;
   uint8_t afterTouchThreshold_ = 64;
   bool readyToBehaveAftertouch_ = true;
-
-  ChordRecognizer chordRecognizer_;
-  uint16_t melodicKeys_ = 0;
-  std::optional<HarmonicChordContext> previousChord_;
 
   std::vector<TuningPreset> loadPresets() const;
   void savePresets(
@@ -264,27 +199,13 @@ private:
     int data1,
     int data2);
 
-  void cancelNoteWindow();
-  void confirmNoteWindow();
-  void evaluateNoteWindow();
-  void resetAlternativeState();
-  void rebuildPressedMasks();
-  AdaptiveChoice chooseBestInterpretationAndConfigByChords();
-
-  std::optional<KeyChoice> chooseBestLocalKey(
-    uint16_t pressedKeyMask12,
-    const Config& config,
-    const NtetMapping& mapping) const;
-
-  void recordScaleNote(const ActiveNote& note);
-  const Config* findConfigByScale(int& keyTonic, bool& isMinor);
+  void resetAdaptiveState();
+  void rebuildPressedKeys();
 
   QString noteName(int fifths) const;
-  void resetScaleData();
   bool adoptConfig(
     const Config& config,
     const NtetMapping& mapping);
-  void invalidateIncompatibleKey();
   void sendAllNotesOff();
 };
 

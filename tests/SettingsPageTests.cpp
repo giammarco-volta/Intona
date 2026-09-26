@@ -46,7 +46,6 @@ int main(int argc, char** argv)
   engine.rootContext()->setContextProperty("PerformanceRecorder", &recorder);
   QQmlPropertyMap settings;
   settings.insert("noteNamingMode", 0);
-  settings.insert("useScaleTriadAdapting", false);
   engine.rootContext()->setContextProperty("TuningController", &settings);
   QQmlComponent component(&engine);
   const auto pages = QUrl::fromLocalFile(QStringLiteral(INTONA_SOURCE_DIR "/src/qml/pages")).toString();
@@ -90,15 +89,8 @@ ApplicationWindow {
   QMetaObject::invokeMethod(recordButton, "clicked");
   if (recorder.recording() || !QFile::exists(recorder.filePath())) return 27;
   auto* adapting = root->findChild<QObject*>("scaleTriadAdaptingSelector");
-  if (!adapting || adapting->property("checked").toBool()) return 11;
-  adapting->setProperty("checked", true);
-  QMetaObject::invokeMethod(adapting, "toggled");
-  if (!settings.value("useScaleTriadAdapting").toBool()) return 12;
-  if (threshold || root->findChild<QObject*>("historyDecaySlopeSelector")
+  if (adapting || threshold || root->findChild<QObject*>("historyDecaySlopeSelector")
     || root->findChild<QObject*>("historyWindowIntervalsSelector")) return 16;
-  settings.insert("useScaleTriadAdapting", false);
-  settle();
-  if (adapting->property("checked").toBool()) return 13;
   if (selector->property("currentIndex").toInt() != 0)
     return 2;
   QMetaObject::invokeMethod(selector, "activated", Q_ARG(int, 1));
@@ -128,6 +120,51 @@ ApplicationWindow {
   window->resize(360,700);
   settle();
   if(!screenshotDir.isEmpty() && !window->grabWindow().save(screenshotDir+"/settings-portrait.png"))return 24;
-  std::cout << "PASS: Settings page loads, obsolete controls are absent, recording is available, naming and algorithm controls write preferences, external updates preserve bindings, desktop and mobile render.\n";
+  // Exercise the real shared rail and its packaged SVG with the software
+  // renderer: a shader-only tint used to leave this icon completely blank.
+  QQmlComponent navigation(&engine);
+  navigation.setData(R"(
+import QtQuick
+import QtQuick.Controls
+import NaadaLab.Ui as SharedUi
+ApplicationWindow {
+    width:64; height:64; visible:true; color:"#202020"
+    SharedUi.NavigationRail {
+        objectName:"iconRail"; anchors.fill:parent
+        sections:[{section:"settings", name:"Settings", icon:"settings"}]
+        currentSection:"settings"
+    }
+})", QUrl());
+  std::unique_ptr<QObject> navigationRoot(navigation.create());
+  auto *navigationWindow = qobject_cast<QQuickWindow *>(navigationRoot.get());
+  auto *rail = navigationRoot ? navigationRoot->findChild<QObject *>("iconRail") : nullptr;
+  if (!navigationWindow || !rail)
+  {
+    std::cerr << navigation.errorString().toStdString();
+    return 28;
+  }
+  const auto iconPixels = [](const QImage &image, QColor color) {
+    int count = 0;
+    const double scale = image.devicePixelRatio();
+    for (int y = int(8 * scale); y < int(48 * scale); ++y)
+      for (int x = int(8 * scale); x < int(56 * scale); ++x)
+      {
+        const auto pixel = image.pixelColor(x, y);
+        if (std::abs(pixel.red() - color.red()) < 10 &&
+            std::abs(pixel.green() - color.green()) < 10 &&
+            std::abs(pixel.blue() - color.blue()) < 10) ++count;
+      }
+    return count;
+  };
+  settle();
+  auto icon = navigationWindow->grabWindow();
+  if (icon.isNull() || iconPixels(icon, QColor("#D8B85A")) < 50) return 29;
+  if (!screenshotDir.isEmpty()) icon.save(screenshotDir + "/settings-icon-selected.png");
+  rail->setProperty("currentSection", "");
+  settle();
+  icon = navigationWindow->grabWindow();
+  if (icon.isNull() || iconPixels(icon, QColor("#E0E0E0")) < 50) return 30;
+  std::cout << "PASS: Settings navigation icon is visible and changes tint with software rendering.\n";
+  std::cout << "PASS: Settings page loads, obsolete controls are absent, recording is available, naming control writes preferences, external updates preserve bindings, desktop and mobile render.\n";
   return 0;
 }

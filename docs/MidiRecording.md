@@ -19,7 +19,7 @@ Input fields:
 - `status`: message kind without the channel nibble; `channel`: 1–16; `data1`, `data2`: original data.
 - Note records also contain `note` (MIDI 0–127) and `velocity`. A zero-velocity Note On is classified as `note_off` while retaining its original status and data.
 
-Session start includes UTC time, label and settings. Context snapshots include the MIDI source, EDO, center, twelve fifth-coordinate assignments, adaptation mode, dirty-note threshold and history settings. These snapshots come from the coalesced UI state: they are not an exhaustive or precisely synchronized trace of tuning decisions. Session end includes the number of input events.
+Session start includes UTC time, label and settings. Context snapshots include the MIDI source, EDO, center, twelve fifth-coordinate assignments, RT Adapting status, the scales/triads algorithm identifier and its 70 ms verification interval. These snapshots come from the coalesced UI state: they are not an exhaustive or precisely synchronized trace of tuning decisions. Session end includes the number of input events.
 
 Pair notes by channel and MIDI note, preserve event order for equal timestamps, and report unmatched releases, unfinished notes and repeated attacks explicitly. Pedal events distinguish physical key release from sustained sound. The recorder preserves raw evidence rather than classifying notes as dirty or overlaps as intentional.
 

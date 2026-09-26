@@ -1,5 +1,6 @@
 #pragma once
-#include "HarmonicCostAdapting.h" // Relative keyboard geometry, not the cost engine.
+#include "RelativeKeyboard.h"
+#include <functional>
 #include <array>
 #include <cstdint>
 #include <map>

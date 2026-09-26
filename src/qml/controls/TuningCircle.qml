@@ -11,7 +11,6 @@ Item {
     property int edoIndex: -1
     property var availableEdos: []
     property int tuningCenter: -2147483648
-    property string tuningCenterName: ""
     property var keyNames: []
     property var canRaiseKeys: []
     property var canLowerKeys: []
@@ -19,8 +18,6 @@ Item {
     property bool adaptingEnabled: true
     property string aftertouchText: ""
     property bool aftertouchEnabled: true
-    property string keyDescription: ""
-    property string chordDescription: ""
     property bool compactLayout: false
     property bool noteDragActive: false
     property int noteDragTargetStep: -1
@@ -71,11 +68,7 @@ Item {
     readonly property real optionTouchHeight:
         Math.max(40, diameter / 15)
 
-    readonly property real statusFontSize:
-        Math.max(10, diameter / 40)
 
-    readonly property real statusLineHeight:
-        statusFontSize + 7
 
     readonly property real centerX: width / 2
     readonly property real centerY: height / 2
@@ -295,44 +288,6 @@ Item {
                 }
             }
 
-            Rectangle {
-                readonly property real dotRadius:
-                    root.outerRadius + 14
-
-                x: root.centerX
-                   + dotRadius * Math.cos(parent.angle)
-                   - width / 2
-
-                y: root.centerY
-                   + dotRadius * Math.sin(parent.angle)
-                   - height / 2
-
-                width: Math.max(5, root.diameter / 105)
-                height: width
-                radius: width / 2
-                visible: parent.modelData.keyTonic
-                color: SharedUi.Theme.link
-            }
-
-            Rectangle {
-                readonly property real dotRadius:
-                    root.outerRadius + 21
-
-                x: root.centerX
-                   + dotRadius * Math.cos(parent.angle)
-                   - width / 2
-
-                y: root.centerY
-                   + dotRadius * Math.sin(parent.angle)
-                   - height / 2
-
-                width: Math.max(4, root.diameter / 125)
-                height: width
-                radius: width / 2
-                visible: parent.modelData.chordRoot
-                color: SharedUi.Theme.error
-            }
-
             Label {
                 x: root.centerX
                    + root.centsRadius * Math.cos(parent.angle)
@@ -479,42 +434,6 @@ Item {
 
         onStepRequested: function(keyIndex, direction) {
             root.keyStepRequested(keyIndex, direction)
-        }
-    }
-
-    Column {
-        x: root.sideLabelsX
-        y: root.centerY + root.nameRadius
-           - height
-        width: Math.max(180, root.diameter * 0.36)
-        height: root.statusLineHeight * 3 + spacing * 2
-        spacing: 3
-
-        Label {
-            width: parent.width
-            height: root.statusLineHeight
-            text: root.tuningCenterName.length > 0
-                  ? qsTr("Tuning Center = %1")
-                        .arg(root.tuningCenterName)
-                  : ""
-            color: SharedUi.Theme.accent
-            font.pixelSize: root.statusFontSize
-        }
-
-        Label {
-            width: parent.width
-            height: root.statusLineHeight
-            text: root.keyDescription
-            color: SharedUi.Theme.link
-            font.pixelSize: root.statusFontSize
-        }
-
-        Label {
-            width: parent.width
-            height: root.statusLineHeight
-            text: root.chordDescription
-            color: SharedUi.Theme.error
-            font.pixelSize: root.statusFontSize
         }
     }
 

@@ -11,18 +11,6 @@ namespace Intona::Tuning
 
 void rebuildConfigMask(Config& config);
 
-std::optional<KeyChoice> inferKeyFromDominantSignature(
-  uint16_t pressedKeyMask,
-  const Config& config);
-
-bool isKeyCompatibleWithTuningCenter(
-  int tuningCenter,
-  int keyTonic,
-  bool isMinor);
-
-ChordRootAnalysis inferChordRootByStack(
-  const std::vector<ActiveNote>& notes);
-
 const Config& configForTuningCenter(
   const NtetMapping& mapping,
   int tuningCenter);

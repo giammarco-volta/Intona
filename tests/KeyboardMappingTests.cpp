@@ -1,7 +1,5 @@
 #include "Config.hpp"
 #include "CentsUtilities.hpp"
-#include "Chords.h"
-#include "TuningCenterFinder.h"
 #include "tuning/TuningAlgorithms.h"
 #include "tuning/TuningController.h"
 #include "midi/MidiController.h"
@@ -97,7 +95,7 @@ void verifyConfiguration(const Config& config, const NtetMapping& mapping)
 
 void runKeyboardMappingTests(const QString& temporarySettingsFile)
 {
-  int centers = 0, changed = 0, chordChecks = 0, index31 = -1;
+  int centers = 0, changed = 0, index31 = -1;
   for (int index = 0; index < int(kNtetMappings.size()); ++index)
   {
     const auto& mapping = kNtetMappings[index];
@@ -110,40 +108,6 @@ void runKeyboardMappingTests(const QString& temporarySettingsFile)
       check(findConfigByValues(mapping, config.valueForKey) == &config, "Config lookup after reordering");
       ++centers;
       changed += config.valueForKey != configPool[center - kConfigPoolMin].valueForKey;
-      uint16_t dominantMask = 0;
-      for (int key = 0; key < 12; ++key)
-      {
-        const int value = config.valueForKey[key];
-        if (value == center - 4 || value == center + 2 || value == center + 5)
-          dominantMask |= uint16_t{1} << key;
-      }
-      const auto inferred = inferKeyFromDominantSignature(dominantMask, config);
-      check(inferred && inferred->tonic == center && inferred->isMinor,
-        "Leading-tone detection must follow the actual assigned key");
-      for (int key = 0; key < 12; ++key)
-      {
-        const int root = config.valueForKey[key];
-        if (config.valueForKey[(key + 4) % 12] == root + 4
-          && config.valueForKey[(key + 7) % 12] == root + 1
-          && config.valueForKey[(key + 10) % 12] == root + 10)
-        {
-          Chord dominant;
-          dominant.root_ = key; dominant.type_ = Chord::typeDom7;
-          check(FindConfig(dominant, {}, mapping, config, KeepOldNotes::Yes) == &config
-            && dominant.type_ == Chord::typeAug6th, "Preserve augmented-sixth interpretation");
-        }
-        const bool triad = config.valueForKey[(key + 4) % 12] == root + 4
-          && config.valueForKey[(key + 7) % 12] == root + 1;
-        Chord chord;
-        chord.root_ = key; chord.type_ = Chord::typeMajor;
-        check(TestChordConfig(chord, config) == triad, "Chord matching must use actual root key");
-        if (triad)
-        {
-          const auto* found = FindConfig(chord, {static_cast<int>(root)}, mapping, config, KeepOldNotes::Yes);
-          check(found == &config, "Adaptive lookup should retain an already compatible center");
-          ++chordChecks;
-        }
-      }
     }
   }
   check(index31 >= 0, "31-EDO required");
@@ -162,32 +126,6 @@ void runKeyboardMappingTests(const QString& temporarySettingsFile)
   check(controllerSettings.fileName() == settings.fileName(), "Controller and fixture must use the same temporary file");
   settings.setValue("status/edoIndex", index31);
   const Config& legacy = configPool[18 - kConfigPoolMin];
-  Chord remappedChord;
-  remappedChord.root_ = 5;
-  remappedChord.type_ = Chord::typeMajor;
-  const auto* unrestricted = FindConfig(remappedChord, {24}, edo31, legacy, KeepOldNotes::No);
-  check(unrestricted && TestChordConfig(remappedChord, *unrestricted),
-    "Adaptive lookup must match the optimized physical root assignment");
-  const auto harmonicScore = [&](const Config& candidate) {
-    int local = 0, global = 0;
-    for (int key = 0; key < 12; ++key)
-    {
-      const int distance = std::abs(candidate.valueForKey[key] - legacy.valueForKey[key]);
-      global += distance;
-      if (key == 5 || key == 9 || key == 0) local += distance;
-    }
-    return std::make_tuple(local, global, candidate.valueForKey);
-  };
-  for (int center = edo31.minValue; center <= edo31.maxValue; ++center)
-  {
-    const auto& candidate = edo31.getConfig(static_cast<int>(center));
-    if (TestChordConfig(remappedChord, candidate))
-      check(harmonicScore(*unrestricted) <= harmonicScore(candidate),
-        "Adaptive lookup minimizes harmonic distance rather than center distance");
-  }
-  const auto* preserving = FindConfig(remappedChord, {24}, edo31, legacy, KeepOldNotes::Yes);
-  check(!preserving || preserving->valueForKey[0] == 24,
-    "Keeping a held note means keeping it on the same physical key");
   const auto offset = findGlobalOffsetCents(legacy, edo31, 0.0);
   check(offset.has_value(), "Legacy preset feasible");
   QVariantList savedValues;
@@ -210,5 +148,5 @@ void runKeyboardMappingTests(const QString& temporarySettingsFile)
   settings.clear();
   settings.sync();
   std::cout << "PASS: " << centers << " optimal keyboard mappings (" << changed
-    << " corrected), " << chordChecks << " adaptive chord cases, MIDI encoding and old presets.\n";
+    << " corrected), MIDI encoding and old presets.\n";
 }

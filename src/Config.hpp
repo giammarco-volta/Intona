@@ -163,26 +163,6 @@ template <typename type> inline uint8_t popcount(type x)
   return c;
 }
 
-//--------------------------------------------------
-inline bool areTwoAdjacentOrDistance2(uint16_t mask)
-//--------------------------------------------------
-{
-  if (popcount(mask) != 2)
-    return false;
-
-  //se due bit sono adiacenti, ruotando di 1 uno va sopra l'altro
-  //se distano 2, ruotando di 2 uno va sopra l'altro
-    
-    constexpr uint16_t all12 = 0x0FFF;
-
-  // shift circolare di 1
-  uint16_t rot1 = ((mask << 1) | (mask >> 11)) & all12;
-
-  // shift circolare di 2
-  uint16_t rot2 = ((mask << 2) | (mask >> 10)) & all12;
-
-  return (mask & rot1) || (mask & rot2);
-}
 
 //---------------------------------------------------------------------------
 inline int wrapFifthsToMappingRange(int value, const NtetMapping& mapping)

@@ -44,16 +44,10 @@ set(INTONA_SOURCES
   src/StringUtilities.hpp
   src/tuning/NoteNaming.h
   src/tuning/KeyboardMapping.h
-  src/tuning/HarmonicCostAdapting.h
-  src/tuning/HarmonicCostAdapting.cpp
+  src/tuning/RelativeKeyboard.h
+  src/tuning/RelativeKeyboard.cpp
   src/tuning/ScaleTriadAdapting.h
   src/tuning/ScaleTriadAdapting.cpp
-  src/Chords.h
-  src/Chords.cpp
-  src/ChordRecognizer.h
-  src/ChordRecognizer.cpp
-  src/TuningCenterFinder.h
-  src/TuningCenterFinder.cpp
   src/About.h
   
   src/tuning/TuningTypes.h
@@ -189,7 +183,7 @@ if(INTONA_BUILD_TESTS)
   enable_testing()
   set(INTONA_TEST_SOURCES ${INTONA_SOURCES})
   list(REMOVE_ITEM INTONA_TEST_SOURCES src/main.cpp)
-  add_executable(IntonaNamingTests tests/NoteNamingTests.cpp tests/KeyboardMappingTests.cpp tests/AdaptivePivotTests.cpp tests/HarmonicCostTests.cpp ${INTONA_TEST_SOURCES})
+  add_executable(IntonaNamingTests tests/NoteNamingTests.cpp tests/KeyboardMappingTests.cpp tests/RelativeKeyboardTests.cpp ${INTONA_TEST_SOURCES})
   target_include_directories(IntonaNamingTests PRIVATE src)
   target_link_libraries(IntonaNamingTests PRIVATE NaadaLab::Midi Qt6::Core)
   add_test(NAME IntonaNoteNaming COMMAND IntonaNamingTests)
@@ -203,6 +197,11 @@ if(INTONA_BUILD_TESTS)
   target_include_directories(IntonaMidiRecordingTests PRIVATE src)
   target_link_libraries(IntonaMidiRecordingTests PRIVATE Qt6::Core)
   add_test(NAME IntonaMidiRecording COMMAND IntonaMidiRecordingTests)
+  add_executable(IntonaMidiStartupTests tests/MidiStartupTests.cpp
+    src/midi/MidiController.h src/midi/MidiController.cpp)
+  target_include_directories(IntonaMidiStartupTests PRIVATE src)
+  target_link_libraries(IntonaMidiStartupTests PRIVATE NaadaLab::Midi Qt6::Core)
+  add_test(NAME IntonaMidiStartup COMMAND IntonaMidiStartupTests)
   add_executable(IntonaSettingsPageTests tests/SettingsPageTests.cpp
     src/midi/MidiEventRecorder.h src/midi/MidiEventRecorder.cpp)
   target_include_directories(IntonaSettingsPageTests PRIVATE src)

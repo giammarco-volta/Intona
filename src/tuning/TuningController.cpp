@@ -1,11 +1,9 @@
 #include "TuningController.h"
 #include "TuningAlgorithms.h"
 #include "TuningMidiOutput.h"
-#include "HarmonicCostAdapting.h"
+#include "RelativeKeyboard.h"
 
 #include "../midi/MidiController.h"
-#include "../Chords.h"
-#include "../TuningCenterFinder.h"
 
 #include <QVariantMap>
 #include <algorithm>
@@ -13,33 +11,11 @@
 #include <cmath>
 #include <QSettings>
 #include <QTimer>
-#include <tuple>
 
 #include "../StringUtilities.hpp"
 
 namespace Intona::Tuning
 {
-
-namespace
-{
-
-bool keyContainsMask(
-  uint16_t keyMask12,
-  uint16_t keyPressedMask12)
-{
-  return (keyPressedMask12 & ~keyMask12) == 0;
-}
-
-uint16_t keyMaskFor(int tonic5, bool isMinor, const Config& config)
-{
-  const auto key = std::find(config.valueForKey.begin(), config.valueForKey.end(), tonic5);
-  if (key == config.valueForKey.end())
-    return 0;
-  const int tonic12 = int(std::distance(config.valueForKey.begin(), key));
-  return isMinor ? minorKeyMasks[tonic12] : majorKeyMasks[tonic12];
-}
-
-} // namespace
 
 TuningController::TuningController(
   MidiController* midiController,
@@ -51,20 +27,9 @@ TuningController::TuningController(
     "NaadaLab", "Intona");
   settings.beginGroup("status");
 
-  useScaleTriadAdapting_ = settings.value("useScaleTriadAdapting",
-    settings.value("useHarmonicCostAdapting", settings.value("useScaleMapAdapting", false))).toBool();
-  settings.setValue("useScaleTriadAdapting", useScaleTriadAdapting_);
-  for (const auto* obsolete : {"useHarmonicCostAdapting", "useScaleMapAdapting",
-       "historyWindowIntervals", "historyDecaySlope", "chromaticCost"}) settings.remove(obsolete);
-
-  bool thresholdValid = false;
-  const int savedThreshold = settings.value("dirtyNoteThresholdMs", 100).toInt(&thresholdValid);
-  if (thresholdValid && savedThreshold >= 0 && savedThreshold <= 1000)
-    dirtyNoteThresholdMs_ = savedThreshold;
-  noteWindowTimer_ = new QTimer(this);
-  noteWindowTimer_->setSingleShot(true);
-  noteWindowTimer_->setTimerType(Qt::PreciseTimer);
-  connect(noteWindowTimer_, &QTimer::timeout, this, &TuningController::confirmNoteWindow);
+  for (const auto* obsolete : {"useScaleTriadAdapting", "useHarmonicCostAdapting",
+       "useScaleMapAdapting", "dirtyNoteThresholdMs", "historyWindowIntervals",
+       "historyDecaySlope", "chromaticCost"}) settings.remove(obsolete);
 
   scaleVerificationTimer_ = new QTimer(this);
   scaleVerificationTimer_->setSingleShot(true);
@@ -123,8 +88,6 @@ TuningController::TuningController(
     currentGlobalOffsetCents_ = *offset;
   }
 
-  Chord::InitChordNames();
-
   connect(
     midiController_,
     &MidiController::midiNoteOnReceived,
@@ -164,63 +127,22 @@ TuningController::TuningController(
   // La GUI legacy richiama questa stessa transizione dopo
   // il caricamento delle impostazioni.
   cycleAftertouchMode();
-  resetAlternativeState();
+  resetAdaptiveState();
 }
 
-void TuningController::setUseScaleTriadAdapting(bool enabled)
+void TuningController::observeEventClock(quint32 stamp)
 {
-  if (useScaleTriadAdapting_ == enabled)
-    return;
-  useScaleTriadAdapting_ = enabled;
-  cancelNoteWindow();
-  resetScaleData();
-  previousChord_.reset();
-  resetAlternativeState();
-  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
-  settings.setValue("status/useScaleTriadAdapting", enabled);
-  emit tuningStateChanged();
+  const double elapsed = eventNow();
+  if (eventClockStarted_)
+    eventClockValue_ = std::max(elapsed, eventClockValue_ + std::max(0, int32_t(stamp-eventClockStamp_)));
+  else eventClockStarted_ = true;
+  eventClockStamp_ = stamp;
+  eventClockElapsed_.restart();
 }
 
-void TuningController::observeHistoryClock(quint32 stamp)
+double TuningController::eventNow() const
 {
-  const double elapsed = historyNow();
-  if (historyClockStarted_)
-    historyClockValue_ = std::max(elapsed, historyClockValue_ + std::max(0, int32_t(stamp-historyClockStamp_)));
-  else historyClockStarted_ = true;
-  historyClockStamp_ = stamp;
-  historyClockElapsed_.restart();
-}
-
-double TuningController::historyNow() const
-{
-  return historyClockValue_ + (historyClockElapsed_.isValid() ? historyClockElapsed_.elapsed() : 0);
-}
-
-void TuningController::setDirtyNoteThresholdMs(int milliseconds)
-{
-  if (milliseconds < 0 || milliseconds > 1000 || milliseconds == dirtyNoteThresholdMs_)
-    return;
-  dirtyNoteThresholdMs_ = milliseconds;
-  QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
-  settings.setValue("status/dirtyNoteThresholdMs", milliseconds);
-  if (noteWindowTimer_->isActive())
-  {
-    for (auto& pending : pendingNotes_)
-    {
-      pending.note.minimumDurationMs = milliseconds;
-      for (auto& active : activeNotes_)
-        if (active.generation == pending.note.generation)
-          active.minimumDurationMs = milliseconds;
-    }
-    pendingNotes_.erase(std::remove_if(pendingNotes_.begin(), pendingNotes_.end(),
-      [milliseconds](const PendingNote& note) { return note.released && note.durationMs < uint32_t(milliseconds); }),
-      pendingNotes_.end());
-    if (pendingNotes_.empty())
-      cancelNoteWindow();
-    else
-      noteWindowTimer_->start(milliseconds);
-  }
-  emit tuningStateChanged();
+  return eventClockValue_ + (eventClockElapsed_.isValid() ? eventClockElapsed_.elapsed() : 0);
 }
 
 void TuningController::setNoteNamingMode(int mode)
@@ -265,19 +187,10 @@ void TuningController::setEdoIndex(int index)
   {
     sendAllNotesOff();
     activeNotes_.clear();
-    pressedMask5_ = 0;
   }
 
   edoIndex_ = index;
-  cancelNoteWindow();
-  previousChord_.reset();
-  confirmedNotes_.clear();
-  chordRecognizer_ = ChordRecognizer{};
   keyPressedMask12_ = 0;
-  currentChordRoot_ = Config::invalid;
-  currentChordNameValid_ = false;
-  currentKeyTonic_ = Config::invalid;
-  resetScaleData();
 
   const NtetMapping& mapping =
     kNtetMappings[edoIndex_];
@@ -299,7 +212,7 @@ void TuningController::setEdoIndex(int index)
   settings.endGroup();
 
   sendCurrentTuning(true);
-  resetAlternativeState();
+  resetAdaptiveState();
   emit tuningStateChanged();
 }
 
@@ -324,20 +237,9 @@ int TuningController::tuningCenter() const
   return currentConfig_.tuningCenter;
 }
 
-QString TuningController::tuningCenterName() const
-{
-  if (currentConfig_.tuningCenter == Config::invalid)
-    return {};
-
-  return noteName(
-    currentConfig_.tuningCenter);
-}
-
 void TuningController::selectTuningCenter(int value)
 {
-  cancelNoteWindow();
-  previousChord_.reset();
-  resetAlternativeState();
+  resetAdaptiveState();
   const NtetMapping& mapping =
     kNtetMappings[edoIndex_];
 
@@ -356,18 +258,12 @@ void TuningController::selectTuningCenter(int value)
   }
 
   // Held MIDI keys now play the newly assigned notes as well.
-  pressedMask5_.reset();
   for (auto& note : activeNotes_)
   {
     note.interpretedValue = currentConfig_.valueForKey[note.key];
-    pressedMask5_ |= valueToPoolBit(note.interpretedValue);
   }
-  currentChordRoot_ = Config::invalid;
-  currentChordNameValid_ = false;
-  resetScaleData();
   sendCurrentTuning(true);
-  invalidateIncompatibleKey();
-  resetAlternativeState();
+  resetAdaptiveState();
   emit tuningStateChanged();
 }
 
@@ -466,9 +362,7 @@ void TuningController::moveKeyPitchBySteps(
     candidate.valueForKey[keyIndex] = *targetValue;
   }
 
-  cancelNoteWindow();
-  previousChord_.reset();
-  resetAlternativeState();
+  resetAdaptiveState();
   currentConfig_.valueForKey[keyIndex] =
     candidate.valueForKey[keyIndex];
   currentPresetIndex_ = -1;
@@ -483,10 +377,9 @@ void TuningController::moveKeyPitchBySteps(
     ? matchingConfig->tuningCenter
     : Config::invalid;
 
-  invalidateIncompatibleKey();
   sendCurrentTuning(false);
   setAdaptingEnabled(false);
-  resetAlternativeState();
+  resetAdaptiveState();
   emit tuningStateChanged();
 }
 
@@ -538,8 +431,6 @@ QVariantList TuningController::circleEntries() const
         / double(mapping.N));
     entry.insert("selected", selected);
     entry.insert("keyIndex", keyIndex);
-    entry.insert("keyTonic", *value == currentKeyTonic_);
-    entry.insert("chordRoot", *value == currentChordRoot_);
 
     entries.append(entry);
   }
@@ -733,16 +624,12 @@ void TuningController::applyPreset(int index)
     return;
 
   rebuildConfigMask(candidate);
-  cancelNoteWindow();
-  previousChord_.reset();
-  resetAlternativeState();
+  resetAdaptiveState();
   currentConfig_ = candidate;
-  resetScaleData();
   currentGlobalOffsetCents_ = *offset;
   currentPresetIndex_ = index;
-  invalidateIncompatibleKey();
   sendCurrentTuning(true);
-  resetAlternativeState();
+  resetAdaptiveState();
   emit tuningStateChanged();
 }
 
@@ -773,10 +660,7 @@ void TuningController::setAdaptingEnabled(bool enabled)
     return;
 
   adaptingEnabled_ = enabled;
-  cancelNoteWindow();
-  previousChord_.reset();
-  resetAlternativeState();
-  resetScaleData();
+  resetAdaptiveState();
 
   QSettings settings(QSettings::defaultFormat(), QSettings::UserScope,
     "NaadaLab", "Intona");
@@ -836,40 +720,6 @@ void TuningController::cycleAftertouchMode()
   emit tuningStateChanged();
 }
 
-QString TuningController::keyDescription() const
-{
-  if (currentKeyTonic_ == Config::invalid)
-    return {};
-
-  return tr("Key = %1 %2")
-    .arg(noteName(currentKeyTonic_))
-    .arg(currentKeyIsMinor_ ? tr("minor") : tr("major"));
-}
-
-QString TuningController::chordDescription() const
-{
-  if (currentChordRoot_ == Config::invalid)
-    return {};
-
-  if (currentChordNameValid_)
-  {
-    QString name = noteName(currentChordRoot_);
-    // Separate step modifiers from chord qualities such as augmented "+".
-    if ((name.endsWith('+') || name.endsWith('-'))
-      && !currentChordSuffix_.isEmpty())
-    {
-      name = "(" + name + ")";
-    }
-    name += currentChordSuffix_;
-    if (currentChordBass_ != Config::invalid)
-      name += "/" + noteName(currentChordBass_);
-    return tr("Chord = %1").arg(name);
-  }
-
-  return tr("Chord Root = %1")
-    .arg(noteName(currentChordRoot_));
-}
-
 QVariantList TuningController::pressedKeys() const
 {
   QVariantList result;
@@ -885,14 +735,11 @@ QVariantList TuningController::pressedKeys() const
 TuningUiSnapshot TuningController::uiSnapshot() const
 {
   TuningUiSnapshot snapshot;
-  snapshot.useScaleTriadAdapting = useScaleTriadAdapting_;
-  snapshot.dirtyNoteThresholdMs = dirtyNoteThresholdMs_;
   snapshot.noteNamingMode = noteNamingMode();
   snapshot.edoIndex = edoIndex();
   snapshot.edo = edo();
   snapshot.availableEdos = availableEdos();
   snapshot.tuningCenter = tuningCenter();
-  snapshot.tuningCenterName = tuningCenterName();
   snapshot.keyValues = keyValues();
   snapshot.keyNames = keyNames();
   snapshot.canRaiseKeys = canRaiseKeys();
@@ -903,8 +750,6 @@ TuningUiSnapshot TuningController::uiSnapshot() const
   snapshot.adaptingEnabled = adaptingEnabled();
   snapshot.aftertouchText = aftertouchText();
   snapshot.aftertouchEnabled = aftertouchEnabled();
-  snapshot.keyDescription = keyDescription();
-  snapshot.chordDescription = chordDescription();
   snapshot.pressedKeys = pressedKeys();
   return snapshot;
 }
@@ -942,23 +787,13 @@ void TuningController::sendCurrentTuning(
     currentGlobalOffsetCents_);
 }
 
-void TuningController::rebuildPressedMasks()
+void TuningController::rebuildPressedKeys()
 {
   keyPressedMask12_ = 0;
-  pressedMask5_.reset();
   for (const auto& note : activeNotes_)
   {
     keyPressedMask12_ |= uint16_t{1} << note.key;
-    pressedMask5_ |= valueToPoolBit(note.interpretedValue);
   }
-}
-
-void TuningController::cancelNoteWindow()
-{
-  noteWindowTimer_->stop();
-  pendingNotes_.clear();
-  pivotNotes_.clear();
-  chordReference_.reset();
 }
 
 void TuningController::handleMidiNoteOn(int note, int velocity, quint32 timeMs)
@@ -973,70 +808,32 @@ void TuningController::handleMidiNoteOn(int note, int velocity, quint32 timeMs)
   IMidiOut* out = midiController_->midiOut();
   if (!out)
     return;
-  observeHistoryClock(timeMs);
+  observeEventClock(timeMs);
 
   // A repeated Note On is a fresh articulation, never the old note's pivot.
   if (std::any_of(activeNotes_.begin(), activeNotes_.end(),
       [note](const ActiveNote& active) { return active.midiNote == note; }))
     handleMidiNoteOff(note, 0, timeMs);
 
-  if (useScaleTriadAdapting_)
-  {
-    if (adaptingEnabled_) { scaleTriads_.advance(historyNow()); applyScaleConfig(); }
-    ActiveNote arriving{static_cast<uint8_t>(note), static_cast<uint8_t>(note % 12),
-      static_cast<uint8_t>(velocity), currentConfig_.valueForKey[note % 12], timeMs,
-      ++nextNoteGeneration_, 70};
-    arriving.startTime = historyNow();
-    if (adaptingEnabled_)
-    {
-      scaleTriads_.noteOn(arriving.generation, arriving.key, arriving.startTime);
-      applyScaleConfig(); // Only previously sounding notes can be retriggered.
-    }
-    arriving.interpretedValue = currentConfig_.valueForKey[arriving.key];
-    activeNotes_.push_back(arriving);
-    chordRecognizer_.onNoteOn(arriving.midiNote, arriving.velocity, timeMs);
-    updateScaleDisplay();
-    const auto channels = midiController_->midiOutChannelMask();
-    for (int channel = 0; channel < 16; ++channel)
-      if (channels & (quint32{1} << channel))
-        sendNoteOn(*out, static_cast<uint8_t>(channel), arriving.midiNote, arriving.velocity);
-    scheduleScaleVerification();
-    emit tuningStateChanged();
-    return;
-  }
-
-  if (!noteWindowTimer_->isActive())
-  {
-    chordReference_ = currentConfig_;
-    pivotNotes_ = confirmedNotes_;
-    for (auto& pivot : pivotNotes_)
-      pivot.interpretedValue = currentConfig_.valueForKey[pivot.key];
-    // Explicit UI actions may have cancelled validation of a still-held note.
-    // It can rejoin this group, but cannot become a pivot before validation.
-    for (auto& active : activeNotes_)
-    {
-      active.interpretedValue = currentConfig_.valueForKey[active.key];
-      if (std::none_of(confirmedNotes_.begin(), confirmedNotes_.end(),
-          [&active](const ActiveNote& accepted) { return accepted.generation == active.generation; }))
-        pendingNotes_.push_back({active});
-    }
-  }
-
+  if (adaptingEnabled_) { scaleTriads_.advance(eventNow()); applyScaleConfig(); }
   ActiveNote arriving{static_cast<uint8_t>(note), static_cast<uint8_t>(note % 12),
-    static_cast<uint8_t>(velocity), currentConfig_.valueForKey[note % 12], timeMs,
-    ++nextNoteGeneration_, static_cast<uint32_t>(dirtyNoteThresholdMs_)};
-  arriving.startTime = historyNow();
+    static_cast<uint8_t>(velocity), currentConfig_.valueForKey[note % 12],
+    ++nextNoteGeneration_};
+  const double attackTime = eventNow();
+  if (adaptingEnabled_)
+  {
+    scaleTriads_.noteOn(arriving.generation, arriving.key, attackTime);
+    applyScaleConfig(); // Only previously sounding notes can be retriggered.
+  }
+  arriving.interpretedValue = currentConfig_.valueForKey[arriving.key];
   activeNotes_.push_back(arriving);
-  pendingNotes_.push_back({arriving});
-  // Only the deadline moves; pivots and the reference were frozen above.
-  noteWindowTimer_->start(dirtyNoteThresholdMs_);
-  rebuildPressedMasks();
-
-  const auto channelMask = midiController_->midiOutChannelMask();
+  rebuildPressedKeys();
+  const auto channels = midiController_->midiOutChannelMask();
   for (int channel = 0; channel < 16; ++channel)
-    if (channelMask & (quint32{1} << channel))
+    if (channels & (quint32{1} << channel))
       sendNoteOn(*out, static_cast<uint8_t>(channel), arriving.midiNote, arriving.velocity);
-  emit tuningStateChanged(); // Physical key highlighting, no harmonic decision.
+  scheduleScaleVerification();
+  emit tuningStateChanged();
 }
 
 void TuningController::handleMidiNoteOff(int note, int velocity, quint32 timeMs)
@@ -1046,100 +843,21 @@ void TuningController::handleMidiNoteOff(int note, int velocity, quint32 timeMs)
   IMidiOut* out = midiController_->midiOut();
   if (!out)
     return;
-  observeHistoryClock(timeMs);
-
-  if (useScaleTriadAdapting_)
-  {
-    const auto active = std::find_if(activeNotes_.begin(), activeNotes_.end(),
-      [note](const ActiveNote& held) { return held.midiNote == note; });
-    if (active != activeNotes_.end())
-    {
-      if (adaptingEnabled_) scaleTriads_.noteOff(active->generation, historyNow());
-      activeNotes_.erase(active);
-      chordRecognizer_.onNoteOff(static_cast<uint8_t>(note), static_cast<uint8_t>(velocity), timeMs);
-    }
-    const auto channels = midiController_->midiOutChannelMask();
-    for (int channel = 0; channel < 16; ++channel)
-      if (channels & (quint32{1} << channel))
-        sendNoteOff(*out, static_cast<uint8_t>(channel), static_cast<uint8_t>(note), static_cast<uint8_t>(velocity));
-    updateScaleDisplay(); // Release is never a new harmonic decision.
-    scheduleScaleVerification();
-    emit tuningStateChanged();
-    return;
-  }
+  observeEventClock(timeMs);
 
   const auto active = std::find_if(activeNotes_.begin(), activeNotes_.end(),
     [note](const ActiveNote& held) { return held.midiNote == note; });
   if (active != activeNotes_.end())
   {
-    const ActiveNote released = *active;
-    const uint32_t duration = timeMs - released.startMs;
-    const auto pending = std::find_if(pendingNotes_.begin(), pendingNotes_.end(),
-      [&released](const PendingNote& entry) { return entry.note.generation == released.generation; });
-    if (pending != pendingNotes_.end())
-    {
-      if (duration < pending->note.minimumDurationMs)
-        pendingNotes_.erase(pending); // Never reached recognizer or scale history.
-      else
-      {
-        pending->released = true;
-        pending->durationMs = duration;
-      }
-    }
-
-    const auto confirmed = std::find_if(confirmedNotes_.begin(), confirmedNotes_.end(),
-      [&released](const ActiveNote& entry) { return entry.generation == released.generation; });
-    if (confirmed != confirmedNotes_.end())
-    {
-      chordRecognizer_.onNoteOff(released.midiNote, static_cast<uint8_t>(velocity), timeMs);
-      if (duration >= released.minimumDurationMs && adaptingEnabled_ && !useScaleTriadAdapting_)
-        releasedNotes_.push_back(released); // Consumed only at a future timeout.
-      confirmedNotes_.erase(confirmed);
-    }
-    pivotNotes_.erase(std::remove_if(pivotNotes_.begin(), pivotNotes_.end(),
-      [&released](const ActiveNote& pivot) { return pivot.generation == released.generation; }), pivotNotes_.end());
+    if (adaptingEnabled_) scaleTriads_.noteOff(active->generation, eventNow());
     activeNotes_.erase(active);
-    if (pendingNotes_.empty())
-      cancelNoteWindow();
-    rebuildPressedMasks();
   }
-
-  const auto channelMask = midiController_->midiOutChannelMask();
+  const auto channels = midiController_->midiOutChannelMask();
   for (int channel = 0; channel < 16; ++channel)
-    if (channelMask & (quint32{1} << channel))
+    if (channels & (quint32{1} << channel))
       sendNoteOff(*out, static_cast<uint8_t>(channel), static_cast<uint8_t>(note), static_cast<uint8_t>(velocity));
-  emit tuningStateChanged();
-}
-
-void TuningController::confirmNoteWindow()
-{
-  if (pendingNotes_.empty())
-    return;
-
-  if (adaptingEnabled_ && !useScaleTriadAdapting_)
-    for (const auto& released : releasedNotes_)
-      recordScaleNote(released);
-  releasedNotes_.clear();
-
-  bool addedHeldNote = false;
-  for (const auto& pending : pendingNotes_)
-  {
-    if (pending.released)
-    {
-      if (adaptingEnabled_ && !useScaleTriadAdapting_)
-        recordScaleNote(pending.note);
-      continue;
-    }
-    confirmedNotes_.push_back(pending.note);
-    chordRecognizer_.onNoteOn(pending.note.midiNote, pending.note.velocity, pending.note.startMs);
-    addedHeldNote = true;
-  }
-  // The alternative logic evaluates every validated batch, including clean
-  // notes released during a restarted window. Released notes never retrigger.
-  // The existing logic keeps its original held-new-note eligibility rule.
-  if (addedHeldNote || useScaleTriadAdapting_)
-    evaluateNoteWindow();
-  cancelNoteWindow();
+  rebuildPressedKeys(); // Release is never a new harmonic decision.
+  scheduleScaleVerification();
   emit tuningStateChanged();
 }
 
@@ -1150,12 +868,12 @@ void TuningController::handleMidiPressure(int pressure)
   {
     if (afterTouch_ == AfterTouch::stepUp)
     {
-      for (const auto& note : confirmedNotes_)
+      for (const auto& note : activeNotes_)
         stepKeyPitch(note.key, 1);
     }
     else if (afterTouch_ == AfterTouch::stepDown)
     {
-      for (const auto& note : confirmedNotes_)
+      for (const auto& note : activeNotes_)
         stepKeyPitch(note.key, -1);
     }
 
@@ -1193,105 +911,31 @@ void TuningController::handleMidiChannelMessage(
   }
 }
 
-void TuningController::evaluateNoteWindow()
-{
-  IMidiOut* out = midiController_->midiOut();
-  if (!out)
-    return;
-
-  AdaptiveChoice choice = chooseBestInterpretationAndConfigByChords();
-
-  const quint32 channelMask =
-    midiController_->midiOutChannelMask();
-
-  for (const auto& retriggered : choice.notesToRetrigger)
-  {
-    for (int channel = 0; channel < 16; ++channel)
-    {
-      if ((channelMask & (quint32(1) << channel)) == 0)
-        continue;
-
-      sendNoteOff(
-        *out,
-        static_cast<uint8_t>(channel),
-        retriggered.midiNote,
-        0);
-    }
-  }
-
-  confirmedNotes_ = choice.resolvedNotes;
-  for (auto& note : activeNotes_)
-    note.interpretedValue = choice.config->valueForKey[note.key];
-  rebuildPressedMasks();
-  currentKeyTonic_ = choice.keyTonic;
-  currentKeyIsMinor_ = choice.keyIsMinor;
-  currentChordRoot_ =
-    choice.chordRootValid && confirmedNotes_.size() >= 3
-      ? choice.chordRoot
-      : Config::invalid;
-  currentChordNameValid_ = choice.chordNameValid;
-  currentChordSuffix_ = choice.chordSuffix;
-  currentChordBass_ = choice.chordBass;
-
-  if (choice.config->valueForKey != currentConfig_.valueForKey
-    || (useScaleTriadAdapting_ && choice.config->tuningCenter != currentConfig_.tuningCenter))
-  {
-    adoptConfig(
-      *choice.config,
-      kNtetMappings[edoIndex_]);
-    currentPresetIndex_ = -1;
-    sendCurrentTuning(false);
-  }
-
-  for (const auto& retriggered : choice.notesToRetrigger)
-  {
-    for (int channel = 0; channel < 16; ++channel)
-    {
-      if ((channelMask & (quint32(1) << channel)) == 0)
-        continue;
-
-      sendNoteOn(
-        *out,
-        static_cast<uint8_t>(channel),
-        retriggered.midiNote,
-        retriggered.velocity);
-    }
-  }
-
-}
-
-void TuningController::resetAlternativeState()
+void TuningController::resetAdaptiveState()
 {
   scaleVerificationTimer_->stop();
   scaleTriads_.reset(currentConfig_);
-  if (useScaleTriadAdapting_)
+  for (auto& note : activeNotes_)
   {
-    chordRecognizer_ = ChordRecognizer{};
-    for (auto& note : activeNotes_)
-    {
-      note.interpretedValue = currentConfig_.valueForKey[note.key];
-      scaleTriads_.seed(note.generation, note.key, historyNow() - 70);
-      chordRecognizer_.onNoteOn(note.midiNote, note.velocity, note.startMs);
-    }
-  }
-  for (auto& note : confirmedNotes_)
     note.interpretedValue = currentConfig_.valueForKey[note.key];
+    scaleTriads_.seed(note.generation, note.key, eventNow() - ScaleTriadAdapting::verificationMs);
+  }
 }
 
 void TuningController::scheduleScaleVerification()
 {
   scaleVerificationTimer_->stop();
-  if (!useScaleTriadAdapting_ || !adaptingEnabled_) return;
+  if (!adaptingEnabled_) return;
   if (const auto deadline = scaleTriads_.nextDeadline())
-    scaleVerificationTimer_->start(std::max(1, int(std::ceil(*deadline - historyNow()))));
+    scaleVerificationTimer_->start(std::max(1, int(std::ceil(*deadline - eventNow()))));
 }
 
 void TuningController::verifyScaleEvidence()
 {
-  if (!useScaleTriadAdapting_ || !adaptingEnabled_) return;
-  scaleTriads_.advance(historyNow());
+  if (!adaptingEnabled_) return;
+  scaleTriads_.advance(eventNow());
   applyScaleConfig();
-  updateScaleDisplay();
+  rebuildPressedKeys();
   scheduleScaleVerification();
   emit tuningStateChanged();
 }
@@ -1321,224 +965,6 @@ void TuningController::applyScaleConfig()
       sendNoteOn(*out, static_cast<uint8_t>(channel), note.midiNote, note.velocity);
 }
 
-void TuningController::updateScaleDisplay()
-{
-  const auto& mapping = kNtetMappings[edoIndex_];
-  confirmedNotes_ = activeNotes_;
-  rebuildPressedMasks();
-  uint16_t held = keyPressedMask12_;
-  AdaptiveChoice choice;
-  choice.config = &currentConfig_;
-  choice.resolvedNotes = activeNotes_;
-  // Display analysis only. The recognizer and the existing harmonic criteria
-  // cannot influence the mapping selected by the scale/triad path above.
-  if (held)
-  {
-    if (const auto key = chooseBestLocalKey(held, *choice.config, mapping))
-    {
-      choice.keyTonic = key->tonic;
-      choice.keyIsMinor = key->isMinor;
-    }
-    Chord chord = chordRecognizer_.Recognize();
-    // Lock all twelve assignments: only identify an exact spelling of this
-    // mapping, including symmetric roots and augmented-sixth labels.
-    const Config* spelling = FindClosestChordConfig(chord, mapping, *choice.config, nullptr, 0x0fff);
-    if (spelling && spelling->valueForKey == choice.config->valueForKey)
-    {
-      choice.chordRootValid = true;
-      choice.chordRoot = static_cast<int>(ChordRootValue(chord, *choice.config));
-      choice.chordStructure = ChordStructure::Tertian;
-      choice.chordNameValid = true;
-      choice.chordSuffix = chord.GetChordString();
-      if (chord.omitRoot_)
-        choice.chordSuffix += "(no root)";
-      if (chord.bass_ != chord.root_)
-        choice.chordBass = choice.config->valueForKey[chord.bass_];
-    }
-    else
-    {
-      const auto analysis = inferChordRootByStack(choice.resolvedNotes);
-      choice.chordRootValid = analysis.valid;
-      choice.chordRoot = analysis.root;
-      choice.chordStructure = analysis.structure;
-    }
-  }
-
-  currentKeyTonic_ = choice.keyTonic;
-  currentKeyIsMinor_ = choice.keyIsMinor;
-  currentChordRoot_ = choice.chordRootValid ? choice.chordRoot : Config::invalid;
-  currentChordNameValid_ = choice.chordNameValid;
-  currentChordSuffix_ = choice.chordSuffix;
-  currentChordBass_ = choice.chordBass;
-}
-
-std::optional<KeyChoice>
-TuningController::chooseBestLocalKey(uint16_t keys, const Config& config,
-  const NtetMapping& mapping) const
-{
-  if (auto dominant = inferKeyFromDominantSignature(keys, config))
-    return dominant;
-  std::optional<KeyChoice> best;
-  std::tuple<int, int, int> bestScore;
-  for (int key = 0; key < 12; ++key)
-    for (int form = 0; form < 4; ++form)
-      if (!(keys & ~ScaleKeys(key, form)) && FitsScale(config, key, form))
-      {
-        const int tonic = config.valueForKey[key];
-        const auto score = std::make_tuple(std::abs(tonic), form, tonic);
-        if (!best || score < bestScore)
-        {
-          best = KeyChoice{static_cast<int>(tonic), form != 0};
-          bestScore = score;
-        }
-      }
-  return best;
-}
-
-AdaptiveChoice TuningController::chooseBestInterpretationAndConfigByChords()
-{
-  AdaptiveChoice choice;
-  Chord chord = chordRecognizer_.Recognize();
-  const NtetMapping& mapping = kNtetMappings[edoIndex_];
-  const Config* selectedConfig = &currentConfig_;
-  bool inferChordFromCurrent = false;
-  uint16_t confirmedMask = 0;
-  for (const auto& note : confirmedNotes_)
-    confirmedMask |= uint16_t{1} << note.key;
-
-  const bool canAdapt = adaptingEnabled_
-    && confirmedNotes_.size() >= minNoteNumberForAdapting_
-    && !areTwoAdjacentOrDistance2(confirmedMask);
-
-  if (canAdapt)
-  {
-    uint16_t pivotKeys = 0;
-    for (const auto& note : pivotNotes_)
-      pivotKeys |= uint16_t{1} << note.key;
-    selectedConfig = FindClosestChordConfig(chord, mapping, *chordReference_,
-      previousChord_ ? &*previousChord_ : nullptr, pivotKeys);
-    if (!selectedConfig)
-    {
-      selectedConfig = &currentConfig_;
-      inferChordFromCurrent = true;
-    }
-    else
-      resetScaleData();
-  }
-  else
-  {
-    if (adaptingEnabled_)
-    {
-      for (const auto& pending : pendingNotes_)
-        if (!pending.released)
-          recordScaleNote(pending.note);
-      selectedConfig = findConfigByScale(choice.keyTonic, choice.keyIsMinor);
-    }
-    if (selectedConfig)
-      for (const auto& pivot : pivotNotes_)
-        if (selectedConfig->valueForKey[pivot.key] != pivot.interpretedValue)
-        {
-          selectedConfig = nullptr;
-          choice.keyTonic = Config::invalid;
-          break;
-        }
-    if (!selectedConfig)
-      selectedConfig = &currentConfig_;
-    if (!TestChordConfig(chord, *selectedConfig))
-      inferChordFromCurrent = true;
-  }
-
-  choice.config = selectedConfig;
-  choice.resolvedNotes = confirmedNotes_;
-  for (auto& note : choice.resolvedNotes)
-  {
-    note.interpretedValue = selectedConfig->valueForKey[note.key];
-    choice.pressedMask5 |= valueToPoolBit(note.interpretedValue);
-  }
-  // All notes already sound on the MIDI output, including the new group.
-  for (const auto& oldNote : activeNotes_)
-  {
-    const int next = selectedConfig->valueForKey[oldNote.key];
-    if (mod((next - oldNote.interpretedValue) * mapping.fifthStep, mapping.N) != 0)
-      choice.notesToRetrigger.push_back({oldNote.midiNote, oldNote.velocity, oldNote.interpretedValue, next});
-  }
-
-  if (choice.keyTonic == Config::invalid)
-  {
-    const auto keyChoice = chooseBestLocalKey(confirmedMask, *selectedConfig, mapping);
-    if (keyChoice)
-    {
-      choice.keyTonic = keyChoice->tonic;
-      choice.keyIsMinor = keyChoice->isMinor;
-    }
-    else
-    {
-      choice.keyTonic = Config::invalid;
-      choice.keyIsMinor = false;
-    }
-  }
-  if (inferChordFromCurrent)
-  {
-    const auto rootAnalysis = inferChordRootByStack(choice.resolvedNotes);
-    choice.chordRootValid = rootAnalysis.valid;
-    choice.chordRoot = rootAnalysis.root;
-    choice.chordStructure = rootAnalysis.structure;
-  }
-  else if (!chord.IsNull())
-  {
-    choice.chordRootValid = true;
-    choice.chordRoot = static_cast<int>(ChordRootValue(chord, *selectedConfig));
-    choice.chordStructure = ChordStructure::Tertian;
-    choice.chordNameValid = true;
-    choice.chordSuffix = chord.GetChordString();
-    if (chord.omitRoot_)
-      choice.chordSuffix += "(no root)";
-    if (chord.bass_ != chord.root_)
-      choice.chordBass = selectedConfig->valueForKey[chord.bass_];
-  }
-  // Commit context only for a validated, actually voiced chord. Releases,
-  // dirty notes and intervening melody never replace the preceding chord.
-  if (popcount(confirmedMask) >= 3)
-  {
-    HarmonicChordContext context;
-    context.root = choice.chordRootValid ? choice.chordRoot : Config::invalid;
-    context.plainTriad = !inferChordFromCurrent && popcount(confirmedMask) == 3
-      && (chord.type_ == Chord::typeMajor || chord.type_ == Chord::typeMinor)
-      && chord.t9_ == Chord::tensionVoid9 && chord.t11_ == Chord::tensionVoid11
-      && chord.t13_ == Chord::tensionVoid13;
-    for (int key = 0; key < 12; ++key)
-      if (hasKey12(confirmedMask, key))
-        context.notes.push_back(selectedConfig->valueForKey[key]);
-    previousChord_ = std::move(context);
-  }
-  return choice;
-}
-
-void TuningController::recordScaleNote(const ActiveNote& note)
-{
-  melodicKeys_ |= uint16_t{1} << note.key;
-}
-
-const Config* TuningController::findConfigByScale(int& tonic, bool& minor)
-{
-  uint16_t latest = 0, pivots = 0;
-  for (const auto& note : confirmedNotes_)
-    latest |= uint16_t{1} << note.key;
-  for (const auto& note : pivotNotes_)
-    pivots |= uint16_t{1} << note.key;
-  const Config* selected = FindClosestScaleConfig(kNtetMappings[edoIndex_], currentConfig_,
-    melodicKeys_, latest, pivots, tonic, minor);
-  if (selected)
-    resetScaleData();
-  return selected;
-}
-
-void TuningController::resetScaleData()
-{
-  melodicKeys_ = 0;
-  releasedNotes_.clear();
-}
-
 bool TuningController::adoptConfig(
   const Config& config,
   const NtetMapping& mapping)
@@ -1565,21 +991,6 @@ bool TuningController::adoptConfig(
   }
 
   return true;
-}
-
-void TuningController::invalidateIncompatibleKey()
-{
-  if (currentConfig_.tuningCenter != Config::invalid
-    && isKeyCompatibleWithTuningCenter(
-      currentConfig_.tuningCenter,
-      currentKeyTonic_,
-      currentKeyIsMinor_))
-  {
-    return;
-  }
-
-  currentKeyTonic_ = Config::invalid;
-  currentKeyIsMinor_ = false;
 }
 
 void TuningController::sendAllNotesOff()

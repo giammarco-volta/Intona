@@ -98,34 +98,6 @@ Rectangle {
             }
 
             SharedUi.FormSection {
-                title: qsTr("RT Adapting")
-                Layout.fillWidth: true
-
-                CheckBox {
-                    objectName: "scaleTriadAdaptingSelector"
-                    text: qsTr("Alternative: scales and triads")
-                    Layout.fillWidth: true
-                    checked: TuningController.useScaleTriadAdapting
-                    onToggled: TuningController.useScaleTriadAdapting = checked
-                    Accessible.name: text
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: SharedUi.Theme.secondaryText
-                    text: qsTr("Use scales and major/minor triads to interpret incoming notes, with progressive confirmation. Disable this option to compare with the original chord and melody logic.")
-                }
-
-                Label {
-                    Layout.fillWidth: true
-                    wrapMode: Text.WordWrap
-                    color: SharedUi.Theme.secondaryText
-                    text: qsTr("Notes sound immediately. Changes are checked after 70 ms to reject short notes and brief overlaps. Provisional readings can be revised as more notes arrive; established held notes act as pivots.")
-                }
-            }
-
-            SharedUi.FormSection {
                 title: qsTr("Note names")
                 Layout.fillWidth: true
 

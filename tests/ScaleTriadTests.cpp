@@ -234,13 +234,18 @@ void triadPivotTests()
 void midiTests()
 {
   QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
-  settings.setValue("status/useHarmonicCostAdapting", true);
+  settings.setValue("status/useScaleTriadAdapting", false);
+  settings.setValue("status/useHarmonicCostAdapting", false);
+  settings.setValue("status/dirtyNoteThresholdMs", 1000);
   settings.setValue("status/historyDecaySlope", 7);
   settings.setValue("status/historyWindowIntervals", 1);
   auto *output = new Output;
   MidiController midi{std::unique_ptr<IMidiOut>(output), 5};
   TuningController controller(&midi);
-  require(controller.useScaleTriadAdapting(), "Migrate previous alternative checkbox");
+  require(!settings.contains("status/useScaleTriadAdapting") &&
+              !settings.contains("status/useHarmonicCostAdapting") &&
+              !settings.contains("status/dirtyNoteThresholdMs"),
+          "Remove obsolete mode and timing preferences even for legacy users");
   require(!settings.contains("status/historyDecaySlope") &&
               !settings.contains("status/historyWindowIntervals"),
           "Retire unused history preferences");
@@ -326,31 +331,28 @@ void midiTests()
   for (int note : {64, 66, 68})
     midi.midiNoteOnReceived(note, 90, 8000 + note);
   wait(90);
-  require(controller.keyValues() == unchanged, "RT off bypasses alternative decisions");
+  require(controller.keyValues() == unchanged, "RT off bypasses adaptive decisions");
   for (int note : {64, 66, 68})
     midi.midiNoteOffReceived(note, 0, 8300);
   controller.setAdaptingEnabled(true);
-  controller.setUseScaleTriadAdapting(false);
-  require(!controller.useScaleTriadAdapting(), "Original engine remains selectable");
-  controller.setUseScaleTriadAdapting(true);
   TuningController restored(&midi);
-  require(restored.useScaleTriadAdapting(), "New checkbox persists");
-  std::cout << "PASS: MIDI ordering, immediate output, 70ms rollback, held triad pivots, RT off, mode migration and "
-               "persistence.\n";
+  restored.selectTuningCenter(2);
+  for (int note : {65, 68, 60}) midi.midiNoteOnReceived(note, 90, 9000);
+  require(restored.keyValues()[8].toInt() == -4,
+          "A fresh controller always runs the scale engine without a selector");
+  for (int note : {65, 68, 60}) midi.midiNoteOffReceived(note, 0, 9200);
+  std::cout << "PASS: MIDI ordering, immediate output, 70ms rollback, held triad pivots, RT off and migration.\n";
 }
 void pressedKeyDisplayTests()
 {
-  for (bool alternative : {false, true})
   {
     auto *output = new Output;
     MidiController midi{std::unique_ptr<IMidiOut>(output), 1};
     TuningController controller(&midi);
-    controller.setUseScaleTriadAdapting(alternative);
     for (int i = 0; i < int(kNtetMappings.size()); ++i)
       if (kNtetMappings[i].N == 31) controller.setEdoIndex(i);
     controller.selectTuningCenter(0);
     controller.setAdaptingEnabled(false);
-    controller.setDirtyNoteThresholdMs(0);
     controller.setNoteNamingMode(0);
     midi.midiNoteOnReceived(64, 90, 1000);
     midi.midiNoteOnReceived(76, 90, 1010);
@@ -381,7 +383,7 @@ void pressedKeyDisplayTests()
     midi.midiNoteOnReceived(64, 0, 2100);
     require(!controller.pressedKeys()[4].toBool(), "Velocity-zero release clears the highlight");
   }
-  std::cout << "PASS: pressed-key display survives manual and aftertouch retuning in both engines.\n";
+  std::cout << "PASS: pressed-key display survives manual and aftertouch retuning with scale adaptation.\n";
 }
 void viewModelNotificationTests()
 {
@@ -390,9 +392,7 @@ void viewModelNotificationTests()
   auto *worker = new TuningController(&midi);
   for (int i = 0; i < int(kNtetMappings.size()); ++i)
     if (kNtetMappings[i].N == 31) worker->setEdoIndex(i);
-  worker->setUseScaleTriadAdapting(false);
   worker->setAdaptingEnabled(false);
-  worker->setDirtyNoteThresholdMs(1000);
   worker->selectTuningCenter(0);
   worker->setNoteNamingMode(0);
   TuningViewModel model(worker);
@@ -431,7 +431,7 @@ void viewModelNotificationTests()
   require(held && onsetSignals, "A key press updates the keyboard without refreshing circle entries");
   require(renamed && tuningSignals, "Retuning refreshes circle names without clearing the physical key");
   require(released && releaseSignals && unchangedSignals,
-          "Release/unchanged snapshots do not resend unchanged circle entries");
+          "Releases and unchanged snapshots do not refresh circle entries");
   std::cout << "PASS: queued UI notifications update only changed circle/key states.\n";
 }
 } // namespace

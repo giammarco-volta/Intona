@@ -20,12 +20,6 @@ TuningViewModel::TuningViewModel(
     Qt::DirectConnection);
 }
 
-void TuningViewModel::setUseScaleTriadAdapting(bool enabled)
-{
-  QMetaObject::invokeMethod(worker_,
-    [worker = worker_, enabled]() { worker->setUseScaleTriadAdapting(enabled); },
-    Qt::QueuedConnection);
-}
 
 void TuningViewModel::setNoteNamingMode(int mode)
 {
