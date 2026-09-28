@@ -163,29 +163,33 @@
   <img src="images/naadalab.svg" alt="NaadaLab">
 
   <main class="page">
-    <h1>Intona User Manual</h1>
+    <h1 align="center" style="border-bottom: none;"><br /><font size="7">Intona User Manual</font><br /><br /></h1>
 
-	<section id="introduction">
-	  <h1>Introduction</h1>
+    <section id="introduction">
+      <h1>Introduction</h1>
+      <p><strong>Intona</strong> makes the pitches of alternative tuning systems playable from a standard MIDI keyboard with twelve keys per octave. It can interpret your performance and adapt the tuning automatically, or let you choose your own tuning configurations while playing.</p>
 
-	  <p>
-		<strong>Intona</strong> is a real-time MIDI tuning application designed to
-		retune musical performances according to alternative tuning systems and
-		adaptive intonation rules.
-	  </p>
+      <h2>What is an N-EDO?</h2>
+      <p><strong>N-EDO</strong> means N equal divisions of the octave: the octave is divided into N steps of equal musical size. An octave doubles the frequency, so each step multiplies the frequency by the same ratio, 2 raised to the power 1/N. In cents, each step measures 1200/N. The term <strong>N-TET</strong> (N-tone equal temperament) is also commonly used for these octave-based systems.</p>
+      <p>In 12-EDO each step is a 100-cent semitone. In 31-EDO each step is approximately 38.71 cents, and there are 31 distinct pitches per octave. The physical keyboard still has twelve keys per octave: Intona determines which twelve of those pitches are currently assigned to them.</p>
 
-	  <p>
-		It is intended for musicians, composers and researchers interested in
-		microtonality, equal divisions of the octave, adaptive tuning and
-		non-standard pitch organisation.
-	  </p>
+      <h2>Why only some EDOs between 12 and 64?</h2>
+      <p>Intona includes only temperaments that are <strong>cyclic under their chosen fifth</strong>. Starting from any pitch and repeatedly moving by that fifth visits all N pitches before returning to the starting pitch class on the Nth step. Octave differences are ignored here. Repeated fourths traverse the same cycle in the opposite direction.</p>
+      <p>The important condition is that the cycle does not return earlier. For example, in 24-EDO the usual fifth spans 14 steps and the fourth spans 10. Either cycle returns to its starting pitch class after only twelve jumps, leaving half the pitches unvisited. In this sense, 24-EDO consists of two separate 12-EDO cycles offset by a quarter-tone (50 cents). It therefore does not meet Intona's selection criterion.</p>
+      <p>This choice makes it possible to navigate through all N pitches by moving the tuning centre along a single cycle of fifths, while continuing to play on a conventional twelve-key keyboard. It is the foundation of <strong>RT Adapting</strong>: a MIDI note number identifies a key, but does not specify its musical spelling. For example, note number 63, commonly labelled D#4/Eb4, does not tell Intona whether D# or Eb is intended. Intona uses the musical context to choose an interpretation and its corresponding pitch in the selected EDO.</p>
 
-	  <p>
-		<strong>Intona</strong> can use a static tuning selected by the user or
-		adapt the tuning in real time by analysing the musical context. Its purpose
-		is to make these tuning processes directly playable and controllable during
-		a performance.
-	  </p>
+      <h2>Two ways to use Intona</h2>
+      <p><strong>Adaptive</strong> and <strong>Microtonal</strong> describe two ways of performing with Intona. Use the RT Adapting control to enable automatic interpretation, or disable it to take direct control of the tuning.</p>
+
+      <h3>Adaptive: interpreting a tonal performance</h3>
+      <p>This approach is particularly useful for tonal repertoire written before 12-EDO became the prevailing keyboard tuning. In tunings such as meantone, enharmonic spellings such as Db and C# or D# and Eb need not denote the same sounding pitch. Their distinction matters musically; enharmonic does not necessarily mean identical in pitch.</p>
+      <p>With <strong>RT Adapting</strong> enabled, Intona analyses the incoming performance and adjusts the selection of twelve pitches to supply the notes suggested by the musical context. You play the familiar keyboard while Intona handles changes of interpretation.</p>
+      <p>Intona does not reproduce arbitrary historical unequal temperaments. However, some of its EDOs closely approximate historical tunings. In particular, 31-EDO is a very close approximation to quarter-comma meantone. The 31-tone tradition has roots in the sixteenth-century work of Nicola Vicentino and was developed mathematically by Christiaan Huygens in the seventeenth century. It also has a history of instrument building: the Fokker organ, built in 1950, has manuals providing 31 pitches per octave. Early extended meantone keyboards and exact 31-EDO should not all be assumed to use identical tuning.</p>
+      <p>Historical background: <a href="https://huygens-fokker.org/en/tuningsystems/">Huygens-Fokker Foundation: tuning systems</a> and <a href="https://huygens-fokker.org/en/fokkerorgan/">the Fokker organ</a>.</p>
+
+      <h3>Microtonal: choosing your own pitch configurations</h3>
+      <p>In this approach, turn <strong>RT Adapting</strong> off and choose the configurations needed for your performance yourself. A preset is an ordered set of twelve pitch assignments, one for each key of the octave, drawn from the N pitches of the selected EDO. Prepare these configurations and recall them in real time from the <a href="#tuning-surface">Presets panel</a> or with an assigned keyboard or pedal control.</p>
+      <p>This allows music that uses microtonal intervals directly, beyond the interpretations available to automatic adaptation. For example, two keys can be assigned adjacent steps of the selected EDO. When N is greater than twelve, their distance is smaller than a 12-EDO semitone: in 31-EDO it is approximately 38.71 cents. The preset determines these relationships, without Intona attempting to reinterpret them through scales or triads.</p>
 	</section>
 
 	<nav class="toc" aria-label="Table of contents">
