@@ -203,6 +203,11 @@ int main(int argc, char** argv)
 
   engine.rootContext()->setContextProperty("TuningController", &tuningViewModel);
   engine.rootContext()->setContextProperty("PerformanceRecorder", &performanceRecorder);
+#if defined(INTONA_ENABLE_RECORDING_UI) && INTONA_ENABLE_RECORDING_UI
+  engine.rootContext()->setContextProperty("RecordingUiEnabled", true);
+#else
+  engine.rootContext()->setContextProperty("RecordingUiEnabled", false);
+#endif
 
   engine.rootContext()->setContextProperty("DebugBuild", debugBuild);
 

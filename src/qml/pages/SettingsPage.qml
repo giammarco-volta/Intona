@@ -151,17 +151,20 @@ Rectangle {
                         spacing: 8
                         visible: TuningController.retuningTestAwaitingAnswer
                         Button {
-                            text: qsTr("Yes, the pitch changed")
+                            text: qsTr("Yes, I heard the note change")
                             onClicked: testAnswer.text = qsTr("You can disable retriggering.")
                         }
                         Button {
-                            text: qsTr("No, it stayed the same")
+                            text: qsTr("No, I heard only one note")
                             onClicked: testAnswer.text = qsTr("Enable retriggering to update held notes.")
                         }
-                        Button {
-                            text: qsTr("I could not tell")
-                            onClicked: testAnswer.text = qsTr("Try a sustained sound and check the MIDI output.")
-                        }
+                    }
+                    Label {
+                        Layout.fillWidth: true
+                        wrapMode: Text.WordWrap
+                        color: SharedUi.Theme.secondaryText
+                        visible: TuningController.retuningTestAwaitingAnswer
+                        text: qsTr("No sound? Check the MIDI output, then repeat the test.")
                     }
                     Label {
                         id: testAnswer
@@ -174,6 +177,8 @@ Rectangle {
             }
 
             SharedUi.FormSection {
+                objectName: "recordingPanel"
+                visible: RecordingUiEnabled
                 title: qsTr("Record a performance")
                 Layout.fillWidth: true
 

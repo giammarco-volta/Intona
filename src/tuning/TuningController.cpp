@@ -907,7 +907,7 @@ void TuningController::startRetuningTest()
   }
   else
   {
-    retuningTestMessage_ = tr("Listen: the pitch should change halfway through the two-second note.");
+    retuningTestMessage_ = tr("Listen for a clear change of almost a semitone halfway through the two-second note.");
     retuningTestTimer_->start(1000);
   }
   emit tuningStateChanged();
@@ -950,7 +950,7 @@ void TuningController::finishRetuningTest(bool completed)
     completed = sendTuningTable(*out, retuningTestChannels_, retuningTestTable_) && completed;
   }
   retuningTestAwaitingAnswer_ = completed;
-  retuningTestMessage_ = completed ? tr("Did you hear the pitch change while the note was sounding?")
+  retuningTestMessage_ = completed ? tr("Did you hear the note change by almost a semitone (80 cents) halfway through?")
     : tr("Test interrupted. The previous tuning has been restored where the MIDI connection is available.");
   scheduleScaleVerification();
   emit tuningStateChanged();

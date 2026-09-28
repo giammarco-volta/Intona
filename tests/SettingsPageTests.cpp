@@ -41,6 +41,7 @@ int main(int argc, char** argv)
   QQuickStyle::setStyle("Material");
   QQuickWindow::setGraphicsApi(QSGRendererInterface::Software);
   QQmlEngine engine;
+  engine.rootContext()->setContextProperty("RecordingUiEnabled", false);
   QTemporaryDir recordingDirectory;
   MidiEventRecorder recorder(nullptr, recordingDirectory.path());
   engine.rootContext()->setContextProperty("PerformanceRecorder", &recorder);
@@ -100,6 +101,11 @@ ApplicationWindow {
   QMetaObject::invokeMethod(retrigger, "toggled");
   if (settings.value("retriggerHeldNotes").toBool()) return 31;
   auto* threshold = root->findChild<QObject*>("dirtyNoteThresholdSelector");
+  auto* recordingPanel = root->findChild<QObject*>("recordingPanel");
+  if (!recordingPanel || recordingPanel->property("visible").toBool()) return 50;
+  engine.rootContext()->setContextProperty("RecordingUiEnabled", true);
+  settle();
+  if (!recordingPanel->property("visible").toBool()) return 51;
   auto* recordButton = root->findChild<QObject*>("recordingToggle");
   auto* recordLabel = root->findChild<QObject*>("recordingLabel");
   if (!recordButton || !recordLabel) return 25;
@@ -110,6 +116,9 @@ ApplicationWindow {
   recorder.recordInput(0x80,60,0,1125,1);
   QMetaObject::invokeMethod(recordButton, "clicked");
   if (recorder.recording() || !QFile::exists(recorder.filePath())) return 27;
+  engine.rootContext()->setContextProperty("RecordingUiEnabled", false);
+  settle();
+  if (recordingPanel->property("visible").toBool()) return 52;
   auto* adapting = root->findChild<QObject*>("scaleTriadAdaptingSelector");
   if (adapting || threshold || root->findChild<QObject*>("historyDecaySlopeSelector")
     || root->findChild<QObject*>("historyWindowIntervalsSelector")) return 16;
@@ -143,7 +152,7 @@ ApplicationWindow {
   settle();
   if(!screenshotDir.isEmpty() && !window->grabWindow().save(screenshotDir+"/settings-portrait.png"))return 24;
   settings.insert("retuningTestAwaitingAnswer", true);
-  settings.insert("retuningTestMessage", "Did you hear the pitch change while the note was sounding?");
+  settings.insert("retuningTestMessage", "Did you hear the note change by almost a semitone (80 cents) halfway through?");
   settle();
   if (!root->findChild<QObject*>("retuningTestStatus")->property("visible").toBool()) return 32;
   if (!screenshotDir.isEmpty()

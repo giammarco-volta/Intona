@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
 project(Intona LANGUAGES CXX)
 
+option(INTONA_ENABLE_RECORDING_UI "Show the diagnostic performance recording panel" OFF)
+
 # Ninja must parse the same /showIncludes language on every build, including
 # builds started outside Visual Studio. Otherwise header edits can silently
 # leave incompatible object files in the executable.
@@ -90,6 +92,9 @@ if(WIN32)
     src/resources/windows/Intona.rc
   )
 endif()
+
+target_compile_definitions(Intona PRIVATE
+  INTONA_ENABLE_RECORDING_UI=$<BOOL:${INTONA_ENABLE_RECORDING_UI}>)
 
 qt_add_qml_module(Intona
   URI Intona
