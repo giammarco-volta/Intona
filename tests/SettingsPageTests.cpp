@@ -151,6 +151,8 @@ ApplicationWindow {
   window->resize(360,700);
   settle();
   if(!screenshotDir.isEmpty() && !window->grabWindow().save(screenshotDir+"/settings-portrait.png"))return 24;
+  settings.insert("noteNamingMode", 2);
+  if (selector->property("count").toInt() != 3) return 46;
   settings.insert("retuningTestAwaitingAnswer", true);
   settings.insert("retuningTestMessage", "Did you hear the note change by almost a semitone (80 cents) halfway through?");
   settle();
@@ -170,6 +172,10 @@ ApplicationWindow {
     property int directionCount:0
     Controls.TuningCircle {
         anchors.fill:parent
+        keyNames: ["C\u0307", "D\u0323b", "D\u0307", "E\u0323b", "E\u0307", "F\u0323", "F\u0307#", "G\u0323", "A\u0307b", "A\u0323", "B\u0307b", "B\u0323"]
+        pressedKeys: [true,true,false,false,true,false,false,true,false,false,false,false]
+        edo: 12; tuningCenter: 0
+        entries: keyNames.map(function(name, i) { return {name:name, value:i, pitchStep:i, cents:i*100, selected:true} })
         controlText:"CC 11 = preset next"; controlEnabled:true
         onControlToggled: { testWindow.toggleCount++; controlEnabled = !controlEnabled }
         onControlDirectionRequested: testWindow.directionCount++
@@ -189,6 +195,10 @@ ApplicationWindow {
   if (surfaceRoot->property("toggleCount").toInt() != 1 || surfaceRoot->property("directionCount").toInt()) return 39;
   QMetaObject::invokeMethod(directionArea, "clicked", Qt::DirectConnection, QGenericArgument("QQuickMouseEvent*", &clickEvent));
   if (surfaceRoot->property("toggleCount").toInt() != 1 || surfaceRoot->property("directionCount").toInt() != 1) return 40;
+  if (!screenshotDir.isEmpty()) {
+    auto* surfaceWindow = qobject_cast<QQuickWindow*>(surfaceRoot.get());
+    if (!surfaceWindow || !surfaceWindow->grabWindow().save(screenshotDir + "/dotted-surface.png")) return 45;
+  }
   surfaceRoot.reset();
   settle();
   // The saved name arrives before asynchronous MIDI enumeration at startup.

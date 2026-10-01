@@ -256,7 +256,8 @@ Rectangle {
                     Layout.maximumWidth: 400
                     model: [
                         qsTr("Cycle of fifths"),
-                        qsTr("Simplified names and +/-")
+                        qsTr("Simplified names and +/-"),
+                        qsTr("Simplified names with dots")
                     ]
                     currentIndex: TuningController.noteNamingMode
                     onActivated: function(index) {
@@ -271,7 +272,9 @@ Rectangle {
                     color: SharedUi.Theme.secondaryText
                     text: namingMode.currentIndex === 0
                         ? qsTr("Names follow the cycle of fifths.")
-                        : qsTr("Simplified centre names with +/-; exact interval names for selected notes.")
+                        : namingMode.currentIndex === 1
+                            ? qsTr("Simplified centre names with +/-; exact interval names for selected notes.")
+                            : qsTr("Dots above/below mean one EDO step up/down; exact interval names for selected notes.")
                 }
 
 

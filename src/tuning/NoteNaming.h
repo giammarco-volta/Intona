@@ -9,7 +9,8 @@ namespace Intona::Tuning
 enum class NoteNamingMode
 {
   Fifths = 0,
-  LimitedAccidentals = 1
+  LimitedAccidentals = 1,
+  DottedAccidentals = 2
 };
 
 struct NoteSpelling
@@ -27,16 +28,17 @@ inline int accidentalCount(int fifths)
 
 inline NoteSpelling limitedNoteSpelling(int fifths, int edo, int fifthStep)
 {
-  if (std::abs(accidentalCount(fifths)) <= 2 || edo <= 0)
+  if (edo <= 0)
     return {fifths, 0};
 
   NoteSpelling best{0, 0};
   using Score = std::tuple<int, int, int, int>;
   Score bestScore{edo + 1, 0, 0, 0};
 
-  // Fbb=-15 through B##=19 cover all 35 permitted anchor spellings.
+  // Gb=-6 through A#=10: seven naturals and five sharp/flat pairs.
+  // Minimise symbols, then prefer step modifiers over accidentals.
   // Search pitch classes, independently of the current tuning-center window.
-  for (int anchor = -15; anchor <= 19; ++anchor)
+  for (int anchor = -6; anchor <= 10; ++anchor)
   {
     int offset = ((fifths - anchor) * fifthStep) % edo;
     if (offset < 0)
@@ -45,7 +47,7 @@ inline NoteSpelling limitedNoteSpelling(int fifths, int edo, int fifthStep)
       offset -= edo;
 
     const Score score{
-      std::abs(offset),
+      std::abs(offset) + std::abs(accidentalCount(anchor)),
       std::abs(accidentalCount(anchor)),
       std::abs(anchor - fifths),
       anchor};

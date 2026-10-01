@@ -74,6 +74,14 @@ static QString displayNoteName(
         fifthsFromC, tuningCenter, mapping.N, mapping.fifthStep)
     : Intona::Tuning::limitedNoteSpelling(
         fifthsFromC, mapping.N, mapping.fifthStep);
+  if (mode == Intona::Tuning::NoteNamingMode::DottedAccidentals)
+  {
+    // Attach combining marks to the letter, before any accidental.
+    QString name = noteNameFromFifths(spelling.fifths);
+    name.insert(1, QString(std::abs(spelling.stepOffset),
+                          QChar(spelling.stepOffset < 0 ? 0x0323 : 0x0307)));
+    return name;
+  }
   return noteNameFromFifths(spelling.fifths)
     + QString(std::abs(spelling.stepOffset),
               spelling.stepOffset < 0 ? QLatin1Char('-') : QLatin1Char('+'));

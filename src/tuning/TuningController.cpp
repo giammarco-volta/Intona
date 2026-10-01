@@ -49,8 +49,9 @@ TuningController::TuningController(
     this, &TuningController::cancelRetuningTest);
 
   const int savedNamingMode = settings.value("noteNamingMode", 0).toInt();
-  if (savedNamingMode == static_cast<int>(NoteNamingMode::LimitedAccidentals))
-    noteNamingMode_ = NoteNamingMode::LimitedAccidentals;
+  if (savedNamingMode >= static_cast<int>(NoteNamingMode::Fifths)
+    && savedNamingMode <= static_cast<int>(NoteNamingMode::DottedAccidentals))
+    noteNamingMode_ = static_cast<NoteNamingMode>(savedNamingMode);
 
   int savedEdoIndex =
     settings.value("edoIndex", 10).toInt();
@@ -146,7 +147,7 @@ double TuningController::eventNow() const
 void TuningController::setNoteNamingMode(int mode)
 {
   if (mode < static_cast<int>(NoteNamingMode::Fifths)
-    || mode > static_cast<int>(NoteNamingMode::LimitedAccidentals)
+    || mode > static_cast<int>(NoteNamingMode::DottedAccidentals)
     || mode == noteNamingMode())
   {
     return;

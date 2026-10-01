@@ -26,38 +26,39 @@ static void require(bool condition, const char* message)
 static void verifySpelling(int value, const NtetMapping& mapping)
 {
   const auto result = limitedNoteSpelling(value, mapping.N, mapping.fifthStep);
-  require(std::abs(accidentalCount(result.fifths)) <= 2, "Accidental limit");
+  require(result.fifths >= -6 && result.fifths <= 10, "Conventional reference name");
   require(mod(result.fifths * mapping.fifthStep + result.stepOffset, mapping.N)
     == mod(value * mapping.fifthStep, mapping.N), "Pitch must be preserved");
 
-  if (std::abs(accidentalCount(value)) <= 2)
-  {
-    require(result.fifths == value && result.stepOffset == 0, "Preserve allowed spelling");
-    return;
-  }
-
   // Independent oracle: enumerate letters/alterations and neighbouring octaves.
   const int naturals[] = {0, 2, 4, -1, 1, 3, 5};
-  int bestDistance = mapping.N;
+  int fewestSymbols = mapping.N + 1;
   int fewestAccidentals = 99;
   const int target = mod(value * mapping.fifthStep, mapping.N);
   for (int natural : naturals)
-    for (int accidental = -2; accidental <= 2; ++accidental)
+    for (int accidental = -1; accidental <= 1; ++accidental)
+    {
+      // Exclude Cb, Fb, E# and B# as reference names.
+      if ((accidental == -1 && (natural == 0 || natural == -1))
+        || (accidental == 1 && (natural == 4 || natural == 5))) continue;
       for (int octave = -1; octave <= 1; ++octave)
       {
         const int pitch = mod((natural + 7 * accidental) * mapping.fifthStep, mapping.N)
           + octave * mapping.N;
-        const int distance = std::abs(target - pitch);
-        if (distance < bestDistance)
+        const int symbols = std::abs(target - pitch) + std::abs(accidental);
+        if (symbols < fewestSymbols)
         {
-          bestDistance = distance;
+          fewestSymbols = symbols;
           fewestAccidentals = std::abs(accidental);
         }
-        else if (distance == bestDistance)
+        else if (symbols == fewestSymbols)
           fewestAccidentals = std::min(fewestAccidentals, std::abs(accidental));
       }
-  require(std::abs(result.stepOffset) == bestDistance, "Nearest anchor");
-  require(std::abs(accidentalCount(result.fifths)) == fewestAccidentals, "Fewest accidentals at equal distance");
+    }
+  require(std::abs(result.stepOffset) + std::abs(accidentalCount(result.fifths)) == fewestSymbols,
+    "Fewest total symbols");
+  require(std::abs(accidentalCount(result.fifths)) == fewestAccidentals,
+    "Prefer modifiers at equal symbol count");
 }
 
 static void verifyRelativeNames(int center, const NtetMapping& mapping)
@@ -85,6 +86,11 @@ static void verifyRelativeNames(int center, const NtetMapping& mapping)
     require(result.stepOffset == root.stepOffset, "Every degree inherits the center step modifier");
     require(mod(result.fifths * mapping.fifthStep + result.stepOffset, mapping.N)
       == mod(value * mapping.fifthStep, mapping.N), "Relative spelling preserves EDO pitch");
+    QString dottedExpected = noteNameFromFifths(expectedFifths);
+    dottedExpected.insert(1, QString(std::abs(root.stepOffset),
+      QChar(root.stepOffset < 0 ? 0x0323 : 0x0307)));
+    require(displayNoteName(value, mapping, NoteNamingMode::DottedAccidentals, center)
+      == dottedExpected, "Dots inherit exact interval spelling and attach to letter");
     const QString expected = noteNameFromFifths(expectedFifths)
       + QString(std::abs(root.stepOffset), root.stepOffset < 0 ? QLatin1Char('-') : QLatin1Char('+'));
     require(displayNoteName(value, mapping, NoteNamingMode::LimitedAccidentals, center)
@@ -131,18 +137,26 @@ int main(int argc, char** argv)
     require(edo31 >= 0, "31-EDO available");
     require(edo53 >= 0, "53-EDO available");
     const auto& mapping31 = kNtetMappings[edo31];
-    require(displayNoteName(12, mapping31, NoteNamingMode::LimitedAccidentals) == "B#", "31-EDO B#");
-    require(displayNoteName(26, mapping31, NoteNamingMode::LimitedAccidentals) == "Db", "31-EDO triple sharp");
-    require(displayNoteName(33, mapping31, NoteNamingMode::LimitedAccidentals) == "D", "31-EDO quadruple sharp");
-    require(displayNoteName(-20, mapping31, NoteNamingMode::LimitedAccidentals) == "E#", "31-EDO triple flat");
-    const auto tie = limitedNoteSpelling(26, 53, 31);
-    require(tie.fifths == 14 && tie.stepOffset == 1, "53-EDO tie follows original fifth spelling");
-    const auto below = limitedNoteSpelling(-22, 53, 31);
-    require(below.stepOffset == -1, "Negative step modifier");
-    require(displayNoteName(21, mapping31, NoteNamingMode::LimitedAccidentals, 17)
-      == "C3#", "A double sharp requires C triple sharp as its major third");
-    require(displayNoteName(30, kNtetMappings[edo53], NoteNamingMode::LimitedAccidentals, 26)
-      == QString::fromUtf8("E×+"), "Respell all degrees relative to C double sharp plus");
+    const QStringList expected31 = QStringLiteral(
+      "C C+ C# Db D- D D+ D# Eb E- E E+ F- F F+ F# Gb G- G G+ G# Ab A- A A+ A# Bb B- B B+ C-").split(' ');
+    require(expected31.size() == 31, "Complete 31-EDO sequence");
+    for (int value = -62; value <= 62; ++value)
+    {
+      const auto expected = expected31[mod(value * mapping31.fifthStep, 31)];
+      require(displayNoteName(value, mapping31, NoteNamingMode::LimitedAccidentals) == expected,
+        "31-EDO simplified sequence including enharmonic equivalents");
+      QString dotted = expected;
+      if (dotted.endsWith('+') || dotted.endsWith('-'))
+      {
+        const QChar mark(dotted.endsWith('+') ? 0x0307 : 0x0323);
+        dotted.chop(1);
+        dotted.insert(1, mark);
+      }
+      require(displayNoteName(value, mapping31, NoteNamingMode::DottedAccidentals) == dotted,
+        "31-EDO dotted sequence");
+    }
+    require(displayNoteName(16, mapping31, NoteNamingMode::LimitedAccidentals, 12)
+      == "E-", "C- centre retains exact relative major third E-");
     // One step below C across the octave boundary; also covers repeated signs.
     const auto boundary = limitedNoteSpelling(53, 1200, 701);
     require(boundary.stepOffset < 0, "Octave boundary direction");
@@ -164,10 +178,16 @@ int main(int argc, char** argv)
     require(notifications == 1, "Mode change notifies");
     controller.setNoteNamingMode(1);
     controller.setNoteNamingMode(-1);
-    controller.setNoteNamingMode(2);
+    controller.setNoteNamingMode(3);
     require(notifications == 1, "No-op and invalid mode do not notify");
     TuningController restored(&midi);
     require(restored.noteNamingMode() == 1, "Persisted mode restored");
+
+    controller.setNoteNamingMode(2);
+    require(controller.noteNamingMode() == 2, "Dotted mode accepted");
+    TuningController restoredDots(&midi);
+    require(restoredDots.noteNamingMode() == 2, "Dotted mode persists");
+    controller.setNoteNamingMode(1);
 
     int centers = 0;
     for (int index = 0; index < int(kNtetMappings.size()); ++index)
