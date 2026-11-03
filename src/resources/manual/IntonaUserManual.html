@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Intona User Manual - Draft</title>
+  <title>Intona User Manual</title>
   <style>
 		.group-table {
 			border-collapse: collapse;
@@ -156,6 +156,16 @@
 			height: auto;
 		}
   </style>
+  
+  <style>
+    @media print {
+        section.chapter {
+            break-before: page;
+            page-break-before: always; /* compatibilità */
+        }
+    }
+  </style>
+  
 </head>
 
 <body>
@@ -165,8 +175,9 @@
   <main class="page">
     <h1 align="center" style="border-bottom: none;"><br /><font size="7">Intona User Manual</font><br /><br /></h1>
 
-    <section id="introduction">
+    <section id="introduction" class="chapter">
       <h1>Introduction</h1>
+      <p><strong>Recommended device:</strong> On Android, a tablet is recommended for setup and live performance, especially when using the on-screen controls. Phones are also supported; configured MIDI actions can reduce the need to interact with the screen while playing.</p>
       <p><strong>Intona</strong> makes the pitches of alternative tuning systems playable from a standard MIDI keyboard with twelve keys per octave. It can interpret your performance and adapt the tuning automatically, or let you choose your own tuning configurations while playing.</p>
 
       <h2>What is an N-EDO?</h2>
@@ -180,39 +191,37 @@
       <p>This choice makes it possible to navigate through all N pitches by moving the tuning centre along a single cycle of fifths, while continuing to play on a conventional twelve-key keyboard. It is the foundation of <strong>RT Adapting</strong>: a MIDI note number identifies a key, but does not specify its musical spelling. For example, note number 63, commonly labelled D#4/Eb4, does not tell Intona whether D# or Eb is intended. Intona uses the musical context to choose an interpretation and its corresponding pitch in the selected EDO.</p>
 
       <h2>Interval sizes in the supported EDOs</h2>
-      <p>All values below are numbers of steps in the selected EDO. The chromatic semitone is an augmented unison (for example, C to C#); the diatonic semitone is a minor second (for example, C to Db). Their sum is a whole tone. A fifth consists of three whole tones and one diatonic semitone.</p>
-      <table border="1" cellspacing="0" cellpadding="6">
-        <thead>
-          <tr><th>EDO</th><th>Chromatic<br>semitone</th><th>Diatonic<br>semitone</th><th>Whole<br>tone</th><th>Fifth</th><th>Octave</th></tr>
-        </thead>
+      <p>Values labelled “steps” count steps of the EDO named in that row. Values labelled “cents” express interval sizes in cents, rounded to two decimal places; one EDO step equals 1200/N cents. The chromatic semitone is an augmented unison (for example, C to C#); the diatonic semitone is a minor second (for example, C to Db). Their sum is a whole tone. A fifth consists of three whole tones and one diatonic semitone.</p>
+      <table border="1" cellspacing="0" cellpadding="5">
+        <thead><tr><th>EDO</th><th>Chromatic<br>semitone<br>(steps)</th><th>Diatonic<br>semitone<br>(steps)</th><th>Whole tone<br>(steps)</th><th>Fifth<br>(steps)</th><th>Octave<br>(steps)</th><th>Minor third<br>(cents)</th><th>Major third<br>(cents)</th><th>Fifth<br>(cents)</th></tr></thead>
         <tbody>
-          <tr><td>17-EDO</td><td align="center">2</td><td align="center">1</td><td align="center">3</td><td align="center">10</td><td align="center">17</td></tr>
-          <tr><td>19-EDO</td><td align="center">1</td><td align="center">2</td><td align="center">3</td><td align="center">11</td><td align="center">19</td></tr>
-          <tr><td>22-EDO</td><td align="center">3</td><td align="center">1</td><td align="center">4</td><td align="center">13</td><td align="center">22</td></tr>
-          <tr><td>26-EDO</td><td align="center">1</td><td align="center">3</td><td align="center">4</td><td align="center">15</td><td align="center">26</td></tr>
-          <tr><td>27-EDO</td><td align="center">4</td><td align="center">1</td><td align="center">5</td><td align="center">16</td><td align="center">27</td></tr>
-          <tr><td>29-EDO</td><td align="center">3</td><td align="center">2</td><td align="center">5</td><td align="center">17</td><td align="center">29</td></tr>
-          <tr><td>31-EDO</td><td align="center">2</td><td align="center">3</td><td align="center">5</td><td align="center">18</td><td align="center">31</td></tr>
-          <tr><td>32-EDO</td><td align="center">5</td><td align="center">1</td><td align="center">6</td><td align="center">19</td><td align="center">32</td></tr>
-          <tr><td>33-EDO</td><td align="center">1</td><td align="center">4</td><td align="center">5</td><td align="center">19</td><td align="center">33</td></tr>
-          <tr><td>37-EDO</td><td align="center">6</td><td align="center">1</td><td align="center">7</td><td align="center">22</td><td align="center">37</td></tr>
-          <tr><td>39-EDO</td><td align="center">5</td><td align="center">2</td><td align="center">7</td><td align="center">23</td><td align="center">39</td></tr>
-          <tr><td>40-EDO</td><td align="center">1</td><td align="center">5</td><td align="center">6</td><td align="center">23</td><td align="center">40</td></tr>
-          <tr><td>41-EDO</td><td align="center">4</td><td align="center">3</td><td align="center">7</td><td align="center">24</td><td align="center">41</td></tr>
-          <tr><td>42-EDO</td><td align="center">7</td><td align="center">1</td><td align="center">8</td><td align="center">25</td><td align="center">42</td></tr>
-          <tr><td>43-EDO</td><td align="center">3</td><td align="center">4</td><td align="center">7</td><td align="center">25</td><td align="center">43</td></tr>
-          <tr><td>45-EDO</td><td align="center">2</td><td align="center">5</td><td align="center">7</td><td align="center">26</td><td align="center">45</td></tr>
-          <tr><td>46-EDO</td><td align="center">5</td><td align="center">3</td><td align="center">8</td><td align="center">27</td><td align="center">46</td></tr>
-          <tr><td>47-EDO</td><td align="center">1</td><td align="center">6</td><td align="center">7</td><td align="center">27</td><td align="center">47</td></tr>
-          <tr><td>49-EDO</td><td align="center">7</td><td align="center">2</td><td align="center">9</td><td align="center">29</td><td align="center">49</td></tr>
-          <tr><td>50-EDO</td><td align="center">3</td><td align="center">5</td><td align="center">8</td><td align="center">29</td><td align="center">50</td></tr>
-          <tr><td>53-EDO</td><td align="center">5</td><td align="center">4</td><td align="center">9</td><td align="center">31</td><td align="center">53</td></tr>
-          <tr><td>55-EDO</td><td align="center">4</td><td align="center">5</td><td align="center">9</td><td align="center">32</td><td align="center">55</td></tr>
-          <tr><td>56-EDO</td><td align="center">7</td><td align="center">3</td><td align="center">10</td><td align="center">33</td><td align="center">56</td></tr>
-          <tr><td>59-EDO</td><td align="center">2</td><td align="center">7</td><td align="center">9</td><td align="center">34</td><td align="center">59</td></tr>
-          <tr><td>61-EDO</td><td align="center">8</td><td align="center">3</td><td align="center">11</td><td align="center">36</td><td align="center">61</td></tr>
-          <tr><td>63-EDO</td><td align="center">7</td><td align="center">4</td><td align="center">11</td><td align="center">37</td><td align="center">63</td></tr>
-          <tr><td>64-EDO</td><td align="center">3</td><td align="center">7</td><td align="center">10</td><td align="center">37</td><td align="center">64</td></tr>
+          <tr><td>17-EDO</td><td align="center">2</td><td align="center">1</td><td align="center">3</td><td align="center">10</td><td align="center">17</td><td align="center">282.35</td><td align="center">423.53</td><td align="center">705.88</td></tr>
+          <tr><td>19-EDO</td><td align="center">1</td><td align="center">2</td><td align="center">3</td><td align="center">11</td><td align="center">19</td><td align="center">315.79</td><td align="center">378.95</td><td align="center">694.74</td></tr>
+          <tr><td>22-EDO</td><td align="center">3</td><td align="center">1</td><td align="center">4</td><td align="center">13</td><td align="center">22</td><td align="center">272.73</td><td align="center">436.36</td><td align="center">709.09</td></tr>
+          <tr><td>26-EDO</td><td align="center">1</td><td align="center">3</td><td align="center">4</td><td align="center">15</td><td align="center">26</td><td align="center">323.08</td><td align="center">369.23</td><td align="center">692.31</td></tr>
+          <tr><td>27-EDO</td><td align="center">4</td><td align="center">1</td><td align="center">5</td><td align="center">16</td><td align="center">27</td><td align="center">266.67</td><td align="center">444.44</td><td align="center">711.11</td></tr>
+          <tr><td>29-EDO</td><td align="center">3</td><td align="center">2</td><td align="center">5</td><td align="center">17</td><td align="center">29</td><td align="center">289.66</td><td align="center">413.79</td><td align="center">703.45</td></tr>
+          <tr><td>31-EDO</td><td align="center">2</td><td align="center">3</td><td align="center">5</td><td align="center">18</td><td align="center">31</td><td align="center">309.68</td><td align="center">387.10</td><td align="center">696.77</td></tr>
+          <tr><td>32-EDO</td><td align="center">5</td><td align="center">1</td><td align="center">6</td><td align="center">19</td><td align="center">32</td><td align="center">262.50</td><td align="center">450.00</td><td align="center">712.50</td></tr>
+          <tr><td>33-EDO</td><td align="center">1</td><td align="center">4</td><td align="center">5</td><td align="center">19</td><td align="center">33</td><td align="center">327.27</td><td align="center">363.64</td><td align="center">690.91</td></tr>
+          <tr><td>37-EDO</td><td align="center">6</td><td align="center">1</td><td align="center">7</td><td align="center">22</td><td align="center">37</td><td align="center">259.46</td><td align="center">454.05</td><td align="center">713.51</td></tr>
+          <tr><td>39-EDO</td><td align="center">5</td><td align="center">2</td><td align="center">7</td><td align="center">23</td><td align="center">39</td><td align="center">276.92</td><td align="center">430.77</td><td align="center">707.69</td></tr>
+          <tr><td>40-EDO</td><td align="center">1</td><td align="center">5</td><td align="center">6</td><td align="center">23</td><td align="center">40</td><td align="center">330.00</td><td align="center">360.00</td><td align="center">690.00</td></tr>
+          <tr><td>41-EDO</td><td align="center">4</td><td align="center">3</td><td align="center">7</td><td align="center">24</td><td align="center">41</td><td align="center">292.68</td><td align="center">409.76</td><td align="center">702.44</td></tr>
+          <tr><td>42-EDO</td><td align="center">7</td><td align="center">1</td><td align="center">8</td><td align="center">25</td><td align="center">42</td><td align="center">257.14</td><td align="center">457.14</td><td align="center">714.29</td></tr>
+          <tr><td>43-EDO</td><td align="center">3</td><td align="center">4</td><td align="center">7</td><td align="center">25</td><td align="center">43</td><td align="center">306.98</td><td align="center">390.70</td><td align="center">697.67</td></tr>
+          <tr><td>45-EDO</td><td align="center">2</td><td align="center">5</td><td align="center">7</td><td align="center">26</td><td align="center">45</td><td align="center">320.00</td><td align="center">373.33</td><td align="center">693.33</td></tr>
+          <tr><td>46-EDO</td><td align="center">5</td><td align="center">3</td><td align="center">8</td><td align="center">27</td><td align="center">46</td><td align="center">286.96</td><td align="center">417.39</td><td align="center">704.35</td></tr>
+          <tr><td>47-EDO</td><td align="center">1</td><td align="center">6</td><td align="center">7</td><td align="center">27</td><td align="center">47</td><td align="center">331.91</td><td align="center">357.45</td><td align="center">689.36</td></tr>
+          <tr><td>49-EDO</td><td align="center">7</td><td align="center">2</td><td align="center">9</td><td align="center">29</td><td align="center">49</td><td align="center">269.39</td><td align="center">440.82</td><td align="center">710.20</td></tr>
+          <tr><td>50-EDO</td><td align="center">3</td><td align="center">5</td><td align="center">8</td><td align="center">29</td><td align="center">50</td><td align="center">312.00</td><td align="center">384.00</td><td align="center">696.00</td></tr>
+          <tr><td>53-EDO</td><td align="center">5</td><td align="center">4</td><td align="center">9</td><td align="center">31</td><td align="center">53</td><td align="center">294.34</td><td align="center">407.55</td><td align="center">701.89</td></tr>
+          <tr><td>55-EDO</td><td align="center">4</td><td align="center">5</td><td align="center">9</td><td align="center">32</td><td align="center">55</td><td align="center">305.45</td><td align="center">392.73</td><td align="center">698.18</td></tr>
+          <tr><td>56-EDO</td><td align="center">7</td><td align="center">3</td><td align="center">10</td><td align="center">33</td><td align="center">56</td><td align="center">278.57</td><td align="center">428.57</td><td align="center">707.14</td></tr>
+          <tr><td>59-EDO</td><td align="center">2</td><td align="center">7</td><td align="center">9</td><td align="center">34</td><td align="center">59</td><td align="center">325.42</td><td align="center">366.10</td><td align="center">691.53</td></tr>
+          <tr><td>61-EDO</td><td align="center">8</td><td align="center">3</td><td align="center">11</td><td align="center">36</td><td align="center">61</td><td align="center">275.41</td><td align="center">432.79</td><td align="center">708.20</td></tr>
+          <tr><td>63-EDO</td><td align="center">7</td><td align="center">4</td><td align="center">11</td><td align="center">37</td><td align="center">63</td><td align="center">285.71</td><td align="center">419.05</td><td align="center">704.76</td></tr>
+          <tr><td>64-EDO</td><td align="center">3</td><td align="center">7</td><td align="center">10</td><td align="center">37</td><td align="center">64</td><td align="center">318.75</td><td align="center">375.00</td><td align="center">693.75</td></tr>
         </tbody>
       </table>
       <p>For an octave of N steps and a fifth of q steps, the chromatic semitone is 7q - 4N, the diatonic semitone is 3N - 5q, and the whole tone is 2q - N. These relationships preserve the interval spellings generated by the cycle of fifths; the two types of semitone need not have the same size.</p>
@@ -223,8 +232,8 @@
       <h3>Adaptive: interpreting a tonal performance</h3>
       <p>This approach is particularly useful for tonal repertoire written before 12-EDO became the prevailing keyboard tuning. In tunings such as meantone, enharmonic spellings such as Db and C# or D# and Eb need not denote the same sounding pitch. Their distinction matters musically; enharmonic does not necessarily mean identical in pitch.</p>
       <p>With <strong>RT Adapting</strong> enabled, Intona analyses the incoming performance and adjusts the selection of twelve pitches to supply the notes suggested by the musical context. You play the familiar keyboard while Intona handles changes of interpretation.</p>
-      <p>Intona does not reproduce arbitrary historical unequal temperaments. However, some of its EDOs closely approximate historical tunings. In particular, 31-EDO is a very close approximation to quarter-comma meantone. The 31-tone tradition has roots in the sixteenth-century work of Nicola Vicentino and was developed mathematically by Christiaan Huygens in the seventeenth century. It also has a history of instrument building: the Fokker organ, built in 1950, has manuals providing 31 pitches per octave. Early extended meantone keyboards and exact 31-EDO should not all be assumed to use identical tuning.</p>
-      <p>Historical background: <a href="https://huygens-fokker.org/en/tuningsystems/">Huygens-Fokker Foundation: tuning systems</a> and <a href="https://huygens-fokker.org/en/fokkerorgan/">the Fokker organ</a>.</p>
+      <p>A palette of more than twelve pitch “colours” is not exclusively a modern experimental idea. The search for intervals closer to simple natural frequency ratios, such as the major thirds of meantone temperament, has a much longer history. Distinguishing enharmonic pitches is part of that search: C# and Db can serve different musical purposes and require different intonations. Late Renaissance and Baroque music therefore has close connections with the questions explored by microtonal musicians today, even when their musical aims differ.</p>
+      <p>One of Intona's purposes is to make that repertoire playable with the pitch distinctions it requires, or close approximations provided by suitable EDOs, on a standard keyboard with twelve keys per octave. RT Adapting lets the available pitches change with the musical context, giving access to a larger palette without requiring a separate physical key for every pitch. The historical instruments discussed in <a href="#historical-perspective">Appendix: A Historical Perspective</a> show how much older the search for that wider palette is than the technology used here.</p>
 
       <h3>Microtonal: choosing your own pitch configurations</h3>
       <p>In this approach, turn <strong>RT Adapting</strong> off and choose the configurations needed for your performance yourself. A preset is an ordered set of twelve pitch assignments, one for each key of the octave, drawn from the N pitches of the selected EDO. Prepare these configurations and recall them in real time from the <a href="#tuning-surface">Presets panel</a> or with an assigned keyboard or pedal control.</p>
@@ -232,17 +241,18 @@
 	</section>
 
 	<nav class="toc" aria-label="Table of contents">
-	  <strong>Contents</strong>
+	  <h2><strong>Contents</strong></h2>
 	  <ol style="font-size:18px; line-height:1.8;">
 		<li><a href="#before-you-start">Before You Start</a></li>
 		<li><a href="#midi-settings">MIDI Setup</a></li>
 		<li><a href="#tuning-fundamentals">Tuning Fundamentals</a></li>
 		<li><a href="#tuning-surface">Tuning Surface</a></li>
 		<li><a href="#settings">Settings</a></li>
+		<li><a href="#historical-perspective">Appendix: A Historical Perspective</a></li>
 	  </ol>
 	</nav>
 
-	<section id="before-you-start">
+	<section id="before-you-start" class="chapter">
 	  <h1>1. Before You Start</h1>
 
 	  <h2>Required MIDI Configuration</h2>
@@ -501,7 +511,7 @@
 	  </ol>
 	</section>
 
-    <section id="midi-settings">
+    <section id="midi-settings" class="chapter">
 	  <h1>2. MIDI Setup</h1>
 
 		<figure>
@@ -595,7 +605,7 @@
       <p>Changing this preference changes labels only; it does not change pitches, MIDI tuning, tuning centres or saved preset values.</p>
     </section>
 
-	<section id="tuning-surface">
+	<section id="tuning-surface" class="chapter">
 	  <h1>4. Tuning Surface</h1>
 
 	  <figure>
@@ -719,7 +729,7 @@
 
 	</section>
 
-    <section id="settings">
+    <section id="settings" class="chapter">
       <h1>5. Settings</h1>
 
 	  <figure>
@@ -759,7 +769,16 @@
 
       <p>Intona uses sharps and flats, including double and, where necessary, higher-order accidentals, rather than quarter-tone symbols or other specialised microtonal signs. These symbols belong to different notational systems, and their meanings are not universally agreed upon. Applying them consistently across all the EDOs and tuning centres supported by Intona would therefore require additional conventions.</p>
 
-      <p>Names derived from the cycle of fifths preserve a consistent relationship between spelling and musical intervals across these systems. In the simplified naming mode, + and − provide an explicit alternative: each sign always indicates one step of the selected EDO, rather than a fixed fraction of a tone.</p>
+      <p>Names derived from the cycle of fifths preserve a consistent relationship between spelling and musical intervals across these systems. The simplified naming modes provide two equivalent ways to indicate step adjustments: + and − signs, or dots above and below the note letter. A + sign or a dot above indicates one step higher; a − sign or a dot below indicates one step lower. Each sign or dot therefore represents one step of the selected EDO, rather than a fixed fraction of a tone.</p>
+    </section>
+
+    <section id="historical-perspective" class="chapter">
+      <h1>6. Appendix: A Historical Perspective</h1>
+      <p>Intona does not reproduce arbitrary historical unequal temperaments. However, some of its EDOs closely approximate historical tunings. In particular, 31-EDO is a very close approximation to quarter-comma meantone.</p>
+      <p>This tradition reaches back to <strong>Nicola Vicentino's archicembalo</strong>, an instrument he devised and described in <i>L'antica musica ridotta alla moderna prattica</i> (1555). It inspired later enharmonic keyboards, including those of <strong>Scipione Stella</strong> and <strong>Fabio Colonna</strong>.</p>
+      <p>Colonna (c. 1567–1640) presented his <strong>Sambuca Lincea</strong>, with 31 notes per octave, in <i>La Sambuca Lincea, overo dell'istromento musico perfetto</i> (Naples, 1618). He sought to refine Stella's instrument, making it more practical to use and easier to tune. His stated aim was an octave divided into 31 acoustically equal parts, although, as Patrizio Barbieri explains, the string-length proportions he supplied do not achieve exact equality. These instruments belong to the historical exploration of the 31-note cycle, but their prescribed tunings should not all be identified with exact modern 31-EDO.</p>
+      <p>The 31-tone equal-temperament tradition was developed mathematically by Christiaan Huygens in the seventeenth century. A later practical example is the <strong>Fokker organ</strong>, built in 1950, with manuals providing 31 pitches per octave.</p>
+      <p>Further reading: Fabio Colonna, <i>La Sambuca Lincea, overo dell'istromento musico perfetto</i> (1618), available in a <a href="https://www.lim.it/it/facsimili/2649-la-sambuca-lincea-overo-dellistromento-musico-perfetto-con-annotazioni-critiche-manoscritte-di-scipione-stella-napoli-1618-9788870960266.html">facsimile edition from Libreria Musicale Italiana</a> including Scipione Stella's handwritten critical annotations; Patrizio Barbieri, <a href="https://www.examenapium.it/cs/biblio/Barbieri1987.pdf"><i>La Sambuca Lincea di Fabio Colonna e il Tricembalo di Scipione Stella</i> (1987)</a>; and the Huygens-Fokker Foundation's accounts of <a href="https://huygens-fokker.org/en/tuningsystems/">tuning systems</a> and <a href="https://huygens-fokker.org/en/fokkerorgan/">the Fokker organ</a>.</p>
     </section>
 
   </main>

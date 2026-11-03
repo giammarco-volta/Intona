@@ -26,6 +26,8 @@ inline constexpr char about[] = R"(
                           octave and context-dependent intonation strategies.
                           </p>
 
+                          <p><b>Recommended device:</b> On Android, a tablet is recommended for setup and live performance, especially when using the on-screen controls. Phones are also supported; configured MIDI actions can reduce the need to interact with the screen while playing.</p>
+
                           <h2>Main Features</h2>
 
                           <ul>
@@ -45,7 +47,6 @@ inline constexpr char about[] = R"(
                               <b>User Manual:</b>
                               <a href="intona:user-manual">open user manual</a>
                           </p>
-                          <p><b>Video Tutorials:</b> <i>work in progress</i></p>
 
                           <h2>Website</h2>
                             <p>

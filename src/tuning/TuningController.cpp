@@ -54,7 +54,7 @@ TuningController::TuningController(
     noteNamingMode_ = static_cast<NoteNamingMode>(savedNamingMode);
 
   int savedEdoIndex =
-    settings.value("edoIndex", 10).toInt();
+    settings.value("edoIndex", defaultEdoIndex).toInt();
 
   adaptingEnabled_ =
     settings.value("adaptingEnabled", true).toBool();
@@ -73,7 +73,7 @@ TuningController::TuningController(
   if (savedEdoIndex < 0
     || savedEdoIndex >= int(kNtetMappings.size()))
   {
-    savedEdoIndex = 10;
+    savedEdoIndex = defaultEdoIndex;
   }
 
   edoIndex_ = savedEdoIndex;

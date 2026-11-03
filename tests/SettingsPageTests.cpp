@@ -143,7 +143,7 @@ ApplicationWindow {
     if (!window->grabWindow().save(screenshotDir + "/settings-desktop.png"))
       return 6;
   }
-  window->resize(800, 360);
+  window->resize(640, 360);
   settle();
   if (!screenshotDir.isEmpty()
     && !window->grabWindow().save(screenshotDir + "/settings-mobile.png"))
@@ -161,6 +161,48 @@ ApplicationWindow {
       && !window->grabWindow().save(screenshotDir + "/settings-test-result.png")) return 33;
   QQmlComponent surface(&engine);
   const auto controls = QUrl::fromLocalFile(QStringLiteral(INTONA_SOURCE_DIR "/src/qml/controls")).toString();
+  // The two side-by-side MIDI panels leave about 253 logical pixels per grid
+  // on a 640px phone. Check double-digit labels, including the bold selection.
+  QQmlComponent channelComponent(&engine);
+  channelComponent.setData(QStringLiteral(R"(
+import QtQuick
+import QtQuick.Controls
+import "%1" as Controls
+ApplicationWindow {
+    width: 253; height: 90; visible: true
+    font.family: "Arial"
+    Controls.MidiChannelGrid {
+        objectName: "channelGrid"
+        width: 253
+        selectedChannel: 12
+        buttonHeight: 40
+    }
+})").arg(controls).toUtf8(), QUrl());
+  std::unique_ptr<QObject> channelWindow(channelComponent.create());
+  if (!channelWindow) { std::cerr << channelComponent.errorString().toStdString(); return 60; }
+  settle();
+  auto* channelGrid = channelWindow->findChild<QQuickItem*>("channelGrid");
+  int checkedChannels = 0;
+  for (auto* button : channelGrid->childItems()) {
+    if (!button->property("channel").isValid()) continue;
+    auto* content = qvariant_cast<QQuickItem*>(button->property("contentItem"));
+    if (!content) return 61;
+    bool foundLabel = false;
+    for (auto* label : content->childItems()) {
+      if (label->property("text").toString() != button->property("text").toString()) continue;
+      const QPointF origin = label->mapToItem(button, QPointF(0, 0));
+      if (origin.x() < -0.5 || origin.x() + label->width() > button->width() + 0.5
+          || std::abs(origin.x() + label->width()/2 - button->width()/2) > 0.5)
+        return 62;
+      foundLabel = true;
+    }
+    if (!foundLabel) return 63;
+    ++checkedChannels;
+  }
+  if (checkedChannels != 16) return 64;
+  if (!screenshotDir.isEmpty())
+    qobject_cast<QQuickWindow*>(channelWindow.get())->grabWindow().save(screenshotDir + "/midi-channels-phone.png");
+  channelWindow.reset();
   const QString surfaceQml = QStringLiteral(R"(
 import QtQuick
 import QtQuick.Controls

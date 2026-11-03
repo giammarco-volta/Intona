@@ -42,6 +42,13 @@ GridLayout {
             text: String(channel)
             selected: channelSelected
 
+            // Material's side padding can survive the generic padding override.
+            // Narrow channel buttons need their content centred over the full face.
+            leftPadding: 0
+            rightPadding: 0
+            topPadding: 0
+            bottomPadding: 0
+
             Layout.fillWidth: true
             Layout.preferredHeight: root.buttonHeight
 

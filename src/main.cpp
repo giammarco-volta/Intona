@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QIcon>
 #include <QQmlApplicationEngine>
+#include "LicenseAccess.h"
 #include <QQmlContext>
 #include <QQuickStyle>
 #include <QThread>
@@ -15,6 +16,7 @@
 
 #include "ManualDocumentParser.h"
 #include "About.h"
+#include "StoreScreenshot.h"
 #include "midi/MidiController.h"
 #include "midi/MidiEventRecorder.h"
 #include "midi/MidiViewModel.h"
@@ -92,6 +94,8 @@ int main(int argc, char** argv)
   app.setWindowIcon(QIcon(QStringLiteral(":/icons/Intona.svg")));
   QQuickStyle::setStyle("Material");
 
+  NaadaLab::LicenseAccess licenseAccess;
+
   QThread midiThread;
   midiThread.setObjectName(QStringLiteral("IntonaMidiThread"));
 
@@ -131,6 +135,9 @@ int main(int argc, char** argv)
   QObject::connect(&midiViewModel, &MidiViewModel::midiInChannelChanged,
     &performanceRecorder, updateRecordingContext);
   updateRecordingContext();
+
+  QObject::connect(&licenseAccess, &NaadaLab::LicenseAccess::accessGranted,
+    midiWorker, &MidiController::start, Qt::QueuedConnection);
 
   midiWorker->moveToThread(&midiThread);
   tuningWorker->moveToThread(&midiThread);
@@ -176,6 +183,9 @@ int main(int argc, char** argv)
       QStringLiteral("qrc:/manual/"));
 
   QQmlApplicationEngine engine;
+  StoreScreenshot storeScreenshot;
+  engine.rootContext()->setContextProperty("StoreScreenshot", &storeScreenshot);
+  engine.rootContext()->setContextProperty("LicenseAccess", &licenseAccess);
 
   engine.rootContext()->setContextProperty(
     "AboutHtml",

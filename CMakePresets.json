@@ -1,4 +1,4 @@
-﻿{
+{
   "version": 3,
   "configurePresets": [
     {
@@ -41,6 +41,51 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release"
       }
+    },
+    {
+      "name": "android-release",
+      "displayName": "Android ARM64 + ARMv7 Release (Qt 6.10.3)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/out/build/android-qt6103-release",
+      "toolchainFile": "E:/Qt/6.10.3/android_arm64_v8a/lib/cmake/Qt6/qt.toolchain.cmake",
+      "environment": {
+        "JAVA_HOME": "C:/Program Files/Java/jdk-17.0.1",
+        "PATH": "C:/Program Files/Java/jdk-17.0.1/bin;E:/Qt/6.10.3/mingw_64/bin;$penv{PATH}"
+      },
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_MAKE_PROGRAM": "C:/Tools/Ninja/ninja.exe",
+        "QT_HOST_PATH": "E:/Qt/6.10.3/mingw_64",
+        "ANDROID_SDK_ROOT": "$penv{LOCALAPPDATA}/Android/Sdk",
+        "ANDROID_NDK_ROOT": "$penv{LOCALAPPDATA}/Android/Sdk/ndk/27.2.12479018",
+        "ANDROID_PLATFORM": "android-28",
+        "ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES": "ON",
+        "QT_ANDROID_ABIS": "arm64-v8a;armeabi-v7a",
+        "QT_ANDROID_MULTI_ABI_FORWARD_VARS": "ANDROID_PLATFORM;ANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "android-release-apk",
+      "configurePreset": "android-release",
+      "targets": [
+        "apk"
+      ],
+      "jobs": 6
+    },
+    {
+      "name": "android-release-aab",
+      "configurePreset": "android-release",
+      "targets": [
+        "aab"
+      ],
+      "jobs": 6
     }
   ]
 }

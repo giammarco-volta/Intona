@@ -190,7 +190,8 @@ private:
   void advanceRetuningTest();
   void finishRetuningTest(bool completed);
   NoteNamingMode noteNamingMode_ = NoteNamingMode::Fifths;
-  int edoIndex_ = 10;
+  static constexpr int defaultEdoIndex = 6; // 31-EDO in kNtetMappings.
+  int edoIndex_ = defaultEdoIndex;
   Config currentConfig_;
   double currentGlobalOffsetCents_ = 0.0;
   int currentPresetIndex_ = -1;

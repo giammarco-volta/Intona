@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 
 namespace Intona::Tuning
 {
@@ -38,15 +39,47 @@ bool triadsFit(const Config &cfg, const std::vector<Triad> &ts)
       return false;
   return true;
 }
+
+// Manual assignments need not form a twelve-fifth window. Find a reference
+// for the harmonic search, without replacing any of the sounding assignments.
+std::pair<int, int> searchOrigin(const Config &cfg)
+{
+  int bestMatches = -1;
+  long long bestDistance = std::numeric_limits<long long>::max();
+  std::pair<int, int> best{};
+  for (int value : cfg.valueForKey)
+    for (int center = value - 6; center <= value + 5; ++center)
+      for (int anchor = 0; anchor < 12; ++anchor)
+      {
+        const auto candidate = relativeKeyboardConfig(center, anchor);
+        int matches = 0;
+        long long distance = 0;
+        for (int key = 0; key < 12; ++key)
+        {
+          matches += candidate.valueForKey[key] == cfg.valueForKey[key];
+          distance += std::abs(static_cast<long long>(candidate.valueForKey[key])
+                               - cfg.valueForKey[key]);
+        }
+        if (matches > bestMatches || (matches == bestMatches && distance < bestDistance))
+        {
+          bestMatches = matches;
+          bestDistance = distance;
+          best = {center, anchor};
+        }
+      }
+  return best;
+}
 } // namespace
 
 void ScaleTriadAdapting::reset(const Config &cfg)
 {
   initial_ = cfg;
   const auto anchor = relativeKeyboardAnchor(cfg);
-  valid_ = anchor.has_value();
-  anchor_ = anchor.value_or(0);
-  center_ = stable_ = valid_ ? cfg.tuningCenter : 0;
+  usesInitial_ = !anchor.has_value();
+  const auto origin = anchor ? std::pair{cfg.tuningCenter, *anchor} : searchOrigin(cfg);
+  anchor_ = origin.second;
+  center_ = stable_ = origin.first;
+  valid_ = true;
   time_ = 0;
   episode_.reset();
   notes_.clear();
@@ -56,7 +89,7 @@ void ScaleTriadAdapting::reset(const Config &cfg)
 }
 Config ScaleTriadAdapting::config() const
 {
-  return valid_ ? relativeKeyboardConfig(center_, anchor_) : initial_;
+  return valid_ && !usesInitial_ ? relativeKeyboardConfig(center_, anchor_) : initial_;
 }
 void ScaleTriadAdapting::seed(Id id, int key, double time)
 {
@@ -248,7 +281,7 @@ ScaleTriadAdapting::Selection ScaleTriadAdapting::select(const Ids &cohort)
 }
 ScaleTriadAdapting::Snapshot ScaleTriadAdapting::snapshot() const
 {
-  Snapshot s{center_, stable_, episode_, {}, triadPending_, triads_};
+  Snapshot s{center_, stable_, usesInitial_, episode_, {}, triadPending_, triads_};
   for (const auto &[i, n] : notes_)
     s.readings[i] = n.reading;
   return s;
@@ -437,9 +470,11 @@ void ScaleTriadAdapting::evaluate(Id trigger)
   auto choice = select(cohort);
   if (choice.center)
   {
-    int c = *choice.center, previous = center_;
+    int c = *choice.center;
+    const bool changed = usesInitial_ || c != center_;
     auto before = snapshot();
-    if (c != center_)
+    usesInitial_ = false;
+    if (changed)
     {
       center_ = c;
       if (c == stable_)
@@ -448,7 +483,7 @@ void ScaleTriadAdapting::evaluate(Id trigger)
         episode_ = Episode{trigger};
     }
     accept(cohort, c);
-    if (c != previous)
+    if (changed)
     {
       Transaction tx{time_ + verificationMs,
                      trigger,
@@ -525,6 +560,7 @@ void ScaleTriadAdapting::checkFirst()
   }
   center_ = tx.before.center;
   stable_ = tx.before.stable;
+  usesInitial_ = tx.before.usesInitial;
   episode_ = tx.before.episode;
   triadPending_ = tx.before.triadPending;
   triads_ = tx.before.triads;

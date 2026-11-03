@@ -28,6 +28,13 @@ manual and aftertouch edits, RT off, removal of obsolete preferences, and scale
 adaptation for both existing and fresh installations. UI notification tests
 ensure keyboard highlights do not unnecessarily refresh the circles.
 
+RT reactivation tests cover single/multiple manual pitch steps in both directions
+and aftertouch edits. Re-enabling preserves every current assignment and emits no
+tuning reset; subsequent harmonic evidence resumes adaptation. Noncanonical
+starting tunings also have exact rollback after brief evidence, including a
+transition to the search reference itself, and retain already-held manual notes
+as pivots across four keyboard anchors.
+
 ## Settings, MIDI and startup
 
 `IntonaSettingsPage` loads the real QML page, verifies that the algorithm selector

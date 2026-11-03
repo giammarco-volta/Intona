@@ -41,6 +41,7 @@ endif()
 
 set(INTONA_SOURCES
   src/main.cpp
+  src/StoreScreenshot.h
   src/Config.hpp
   src/CentsUtilities.hpp
   src/StringUtilities.hpp
@@ -73,10 +74,6 @@ set(INTONA_SOURCES
 )
 
 if(ANDROID)
-  set(QT_ANDROID_COMPILE_SDK_VERSION 34)
-  set(QT_ANDROID_MIN_SDK_VERSION 23)
-  set(QT_ANDROID_TARGET_SDK_VERSION 34)
-
   qt_add_executable(Intona
     MANUAL_FINALIZATION
     ${INTONA_SOURCES}
@@ -173,8 +170,23 @@ if(ANDROID)
     "${CMAKE_CURRENT_SOURCE_DIR}/android"
   )
 
+  set_target_properties(Intona PROPERTIES
+    QT_ANDROID_PACKAGE_NAME "com.naadalab.intona"
+    QT_ANDROID_COMPILE_SDK_VERSION 36
+    QT_ANDROID_MIN_SDK_VERSION 28
+    QT_ANDROID_TARGET_SDK_VERSION 36
+    QT_ANDROID_SDK_BUILD_TOOLS_REVISION "36.0.0"
+  )
+
+  if(CMAKE_ANDROID_ARCH_ABI STREQUAL "arm64-v8a")
+    target_link_options(Intona PRIVATE
+      "-Wl,-z,max-page-size=16384"
+      "-Wl,-z,common-page-size=16384"
+    )
+  endif()
+
   set_property(TARGET Intona PROPERTY
-    QT_ANDROID_VERSION_CODE 2
+    QT_ANDROID_VERSION_CODE 5
   )
 
   set_property(TARGET Intona PROPERTY
@@ -188,7 +200,7 @@ option(INTONA_BUILD_TESTS "Build note naming regression tests" OFF)
 if(INTONA_BUILD_TESTS)
   enable_testing()
   set(INTONA_TEST_SOURCES ${INTONA_SOURCES})
-  list(REMOVE_ITEM INTONA_TEST_SOURCES src/main.cpp)
+  list(REMOVE_ITEM INTONA_TEST_SOURCES src/main.cpp src/StoreScreenshot.h)
   add_executable(IntonaNamingTests tests/NoteNamingTests.cpp tests/KeyboardMappingTests.cpp tests/RelativeKeyboardTests.cpp ${INTONA_TEST_SOURCES})
   target_include_directories(IntonaNamingTests PRIVATE src)
   target_link_libraries(IntonaNamingTests PRIVATE NaadaLab::Midi Qt6::Core)

@@ -78,6 +78,7 @@ private:
   struct Snapshot
   {
     int center, stable;
+    bool usesInitial;
     std::optional<Episode> episode;
     std::map<Id, Reading> readings;
     std::set<Id> triadPending;
@@ -103,6 +104,7 @@ private:
   int center_ = 0, stable_ = 0, anchor_ = 0;
   double time_ = 0;
   bool valid_ = false;
+  bool usesInitial_ = false;
   Config initial_{};
   std::optional<Episode> episode_;
   std::map<Id, Note> notes_;

@@ -617,6 +617,124 @@ void controlRetriggerTests()
   std::cout << "PASS: aftertouch, CC and poly steps obey retrigger preference with one atomic MIDI tuning update.\n";
 }
 
+void adaptingResumeTests()
+{
+  for (int direction : {-1, 1})
+    for (int edit : {0, 1, 2})
+  {
+    auto* output = new Output;
+    MidiController midi{std::unique_ptr<IMidiOut>(output), 1};
+    TuningController controller(&midi);
+    for (int i = 0; i < int(kNtetMappings.size()); ++i)
+      if (kNtetMappings[i].N == 31) controller.setEdoIndex(i);
+    controller.selectTuningCenter(2);
+    controller.setAdaptingEnabled(true);
+    if (edit == 2)
+    {
+      controller.setControlSource(0);
+      controller.setControlAction(direction > 0 ? 0 : 1);
+      controller.setControlEnabled(true);
+      midi.midiNoteOnReceived(64, 90, 100);
+      midi.midiNoteOnReceived(67, 80, 110);
+      midi.midiPressureReceived(0, 120);
+      midi.midiPressureReceived(127, 130);
+      midi.midiNoteOffReceived(64, 0, 300);
+      midi.midiNoteOffReceived(67, 0, 310);
+    }
+    else
+    {
+      controller.stepKeyPitch(4, direction);
+      if (edit == 1) controller.stepKeyPitch(7, direction);
+    }
+    require(!controller.adaptingEnabled(), "Manual pitch step disables RT adapting");
+    const auto manual = controller.keyValues();
+    const int manualCenter = controller.tuningCenter();
+    output->messages.clear();
+    controller.setAdaptingEnabled(true);
+    require(controller.adaptingEnabled(), "RT adapting can be enabled after a manual step");
+    require(controller.keyValues() == manual && controller.tuningCenter() == manualCenter
+              && output->messages.empty(),
+            "Enabling RT preserves the exact manual tuning and sends no replacement tuning");
+    midi.midiNoteOnReceived(68, 91, 1000);
+    midi.midiNoteOnReceived(65, 83, 1010);
+    require(controller.keyValues() == manual,
+            "The current tuning survives until enough harmonic evidence arrives");
+    midi.midiNoteOnReceived(60, 79, 1020);
+    require(controller.keyValues()[8].toInt() == -4,
+            "Re-enabled RT must interpret F minor as Ab after a manual pitch step");
+    for (int note : {68, 65, 60}) midi.midiNoteOffReceived(note, 0, 1200);
+  }
+  std::cout << "PASS: RT adapting resumes harmonic interpretation after manual pitch steps.\n";
+}
+
+void manualConfigRollbackTests()
+{
+  for (int anchor : {0, 3, 7, 11})
+    for (int center : {0, 2})
+  {
+    auto manual = relativeKeyboardConfig(center, anchor);
+    manual.valueForKey[(4 + anchor) % 12] -= 12;
+    manual.tuningCenter = Config::invalid;
+    ScaleTriadAdapting engine;
+    engine.reset(manual);
+    require(engine.valid() && engine.config().valueForKey == manual.valueForKey,
+            "A noncanonical manual tuning is an active, unchanged starting point");
+    // F major uses the inferred center itself; F minor selects a different one.
+    const int third = center == 0 ? 9 : 8;
+    engine.noteOn(1, (5 + anchor) % 12, 100);
+    engine.noteOn(2, (third + anchor) % 12, 110);
+    require(engine.config().valueForKey == manual.valueForKey,
+            "One or two notes must not normalize a manual tuning");
+    engine.noteOn(3, anchor, 120);
+    require(relativeKeyboardAnchor(engine.config()).has_value() && engine.nextDeadline(),
+            "The first interpretation from a manual tuning needs verification even at the reference center");
+    engine.noteOff(3, 130);
+    engine.advance(200);
+    require(engine.config().valueForKey == manual.valueForKey
+              && engine.config().tuningCenter == Config::invalid,
+            "Brief evidence rolls back to the exact manual tuning, not a reference center");
+    engine.noteOn(4, anchor, 300);
+    engine.advance(400);
+    require(relativeKeyboardAnchor(engine.config()).has_value(),
+            "A later sustained chord adapts successfully after manual-tuning rollback");
+  }
+  std::cout << "PASS: manual tuning preserved until evidence, exact rollback and retry at four anchors.\n";
+}
+
+void manualHeldPivotTests()
+{
+  for (int anchor : {0, 3, 7, 11})
+  {
+    auto manual = relativeKeyboardConfig(2, anchor);
+    manual.valueForKey[(4 + anchor) % 12] -= 12; // E -> Fb, still held when RT resumes.
+    manual.tuningCenter = Config::invalid;
+    ScaleTriadAdapting engine;
+    engine.reset(manual);
+    engine.seed(1, (4 + anchor) % 12, 0);
+    engine.noteOn(2, (8 + anchor) % 12, 100);
+    engine.noteOn(3, (5 + anchor) % 12, 110);
+    engine.noteOn(4, anchor, 120);
+    require(engine.config().valueForKey[(4 + anchor) % 12] == -8,
+            "Resuming adaptation preserves an already-held manual note as a pivot");
+    engine.advance(200);
+    require(engine.config().valueForKey[(4 + anchor) % 12] == -8,
+            "Verification preserves the manual held-note reading");
+    // The held manual pitch can shift the chord's enharmonic reading, so test
+    // its intervals rather than forcing the spelling from the old center.
+    const auto minorTriad = [&]() {
+      const auto values = engine.config().valueForKey;
+      return values[(8 + anchor) % 12] - values[(5 + anchor) % 12] == -3
+          && values[anchor] - values[(5 + anchor) % 12] == 1;
+    };
+    require(minorTriad(), "The new chord adapts around the current manual pivot");
+    engine.noteOff(1, 210);
+    engine.noteOff(4, 220);
+    engine.noteOn(5, anchor, 230);
+    require(minorTriad(), "Releasing the manual pivot preserves the remaining chord's interpretation");
+  }
+  std::cout << "PASS: held manual pitches remain pivots when adaptation resumes.\n";
+}
+
 void pressedKeyDisplayTests()
 {
   {
@@ -726,6 +844,9 @@ int main(int argc, char **argv)
       replay(QStringLiteral(INTONA_SOURCE_DIR "/tests/data/ScaleTriadCases.json"));
       midiTests();
       retriggerPreferenceAndProbeTests();
+      adaptingResumeTests();
+      manualConfigRollbackTests();
+      manualHeldPivotTests();
       pressedKeyDisplayTests();
       assignableControlTests();
       controlRetriggerTests();

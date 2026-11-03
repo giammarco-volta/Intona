@@ -1,67 +1,51 @@
-<svg xmlns="http://www.w3.org/2000/svg"
-     width="161"
-     height="120"
-     viewBox="0 0 161 120">
-
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <title>Intona — a spectrum of tunings</title>
+  <desc>A full octave of twelve coloured keys. Each key changes colour along its length, including the five raised keys.</desc>
   <defs>
-    <!-- White key gradients -->
-    <linearGradient id="whiteGradA" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0%" stop-color="#FFE94A"/>
-      <stop offset="100%" stop-color="#72C7FF"/>
+    <linearGradient id="background" x2="0" y2="1">
+      <stop stop-color="#24354B"/><stop offset="1" stop-color="#101B2D"/>
     </linearGradient>
-
-    <linearGradient id="whiteGradB" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0%" stop-color="#9BE36B"/>
-      <stop offset="100%" stop-color="#C792F5"/>
-    </linearGradient>
-
-    <!-- Black key gradients -->
-    <linearGradient id="blackGradA" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0%" stop-color="#0B6B2F"/>
-      <stop offset="100%" stop-color="#B00000"/>
-    </linearGradient>
-
-    <linearGradient id="blackGradB" x1="0" y1="1" x2="0" y2="0">
-      <stop offset="0%" stop-color="#5B00A8"/>
-      <stop offset="100%" stop-color="#C48700"/>
-    </linearGradient>
+    <!-- Neighbouring hues keep the transitions bright on every key. -->
+    <linearGradient id="c" x2="0" y2="1"><stop stop-color="#83DBFF"/><stop offset=".5" stop-color="#66BDF7"/><stop offset="1" stop-color="#9B9AF5"/></linearGradient>
+    <linearGradient id="d" x2="0" y2="1"><stop stop-color="#9FBAFF"/><stop offset=".5" stop-color="#B09AF3"/><stop offset="1" stop-color="#E49BDD"/></linearGradient>
+    <linearGradient id="e" x2="0" y2="1"><stop stop-color="#D3A3F4"/><stop offset=".5" stop-color="#EB9CCD"/><stop offset="1" stop-color="#FFB0A3"/></linearGradient>
+    <linearGradient id="f" x2="0" y2="1"><stop stop-color="#FFAAA8"/><stop offset=".5" stop-color="#FFBE91"/><stop offset="1" stop-color="#FFDA8C"/></linearGradient>
+    <linearGradient id="g" x2="0" y2="1"><stop stop-color="#FFCF85"/><stop offset=".5" stop-color="#F3DE83"/><stop offset="1" stop-color="#C7E798"/></linearGradient>
+    <linearGradient id="a" x2="0" y2="1"><stop stop-color="#D5E994"/><stop offset=".5" stop-color="#A6E6A9"/><stop offset="1" stop-color="#7ADBC8"/></linearGradient>
+    <linearGradient id="b" x2="0" y2="1"><stop stop-color="#8DE5BA"/><stop offset=".5" stop-color="#72DBD6"/><stop offset="1" stop-color="#80C9F4"/></linearGradient>
+    <linearGradient id="cs" x2="0" y2="1"><stop stop-color="#266DB7"/><stop offset=".5" stop-color="#5158BE"/><stop offset="1" stop-color="#9852B8"/></linearGradient>
+    <linearGradient id="ds" x2="0" y2="1"><stop stop-color="#7048B3"/><stop offset=".5" stop-color="#A748A5"/><stop offset="1" stop-color="#D25686"/></linearGradient>
+    <linearGradient id="fs" x2="0" y2="1"><stop stop-color="#B84670"/><stop offset=".5" stop-color="#D56360"/><stop offset="1" stop-color="#E39650"/></linearGradient>
+    <linearGradient id="gs" x2="0" y2="1"><stop stop-color="#467D46"/><stop offset=".5" stop-color="#308C65"/><stop offset="1" stop-color="#229D95"/></linearGradient>
+    <linearGradient id="as" x2="0" y2="1"><stop stop-color="#208E85"/><stop offset=".5" stop-color="#2089AA"/><stop offset="1" stop-color="#436DC1"/></linearGradient>
   </defs>
-
-  <!-- White keys -->
-  <rect x="0"   y="0" width="23" height="120"
-        fill="url(#whiteGradA)" stroke="#111" stroke-width="1"/>
-
-  <rect x="23"  y="0" width="23" height="120"
-        fill="url(#whiteGradB)" stroke="#111" stroke-width="1"/>
-
-  <rect x="46"  y="0" width="23" height="120"
-        fill="url(#whiteGradA)" stroke="#111" stroke-width="1"/>
-
-  <rect x="69"  y="0" width="23" height="120"
-        fill="url(#whiteGradB)" stroke="#111" stroke-width="1"/>
-
-  <rect x="92"  y="0" width="23" height="120"
-        fill="url(#whiteGradA)" stroke="#111" stroke-width="1"/>
-
-  <rect x="115" y="0" width="23" height="120"
-        fill="url(#whiteGradB)" stroke="#111" stroke-width="1"/>
-
-  <rect x="138" y="0" width="23" height="120"
-        fill="url(#whiteGradA)" stroke="#111" stroke-width="1"/>
-
-  <!-- Black keys -->
-  <rect x="14.33333" y="0" width="13" height="80"
-        fill="url(#blackGradA)" stroke="#080808" stroke-width="1"/>
-
-  <rect x="41.66666" y="0" width="13" height="80"
-        fill="url(#blackGradB)" stroke="#080808" stroke-width="1"/>
-
-  <rect x="82.25" y="0" width="13" height="80"
-        fill="url(#blackGradA)" stroke="#080808" stroke-width="1"/>
-
-  <rect x="108.25" y="0" width="13" height="80"
-        fill="url(#blackGradB)" stroke="#080808" stroke-width="1"/>
-
-  <rect x="134.75" y="0" width="13" height="80"
-        fill="url(#blackGradA)" stroke="#080808" stroke-width="1"/>
+  <rect width="512" height="512" fill="url(#background)"/>
+  <!-- Seven lower keys, separated by the dark housing rather than heavy outlines. -->
+  <g stroke="#FFFFFF" stroke-opacity=".18" stroke-width="1.5">
+    <rect x="34" y="74" width="60" height="364" rx="7" fill="url(#c)"/>
+    <rect x="98" y="74" width="60" height="364" rx="7" fill="url(#d)"/>
+    <rect x="162" y="74" width="60" height="364" rx="7" fill="url(#e)"/>
+    <rect x="226" y="74" width="60" height="364" rx="7" fill="url(#f)"/>
+    <rect x="290" y="74" width="60" height="364" rx="7" fill="url(#g)"/>
+    <rect x="354" y="74" width="60" height="364" rx="7" fill="url(#a)"/>
+    <rect x="418" y="74" width="60" height="364" rx="7" fill="url(#b)"/>
+  </g>
+  <!-- Raised keys remain coloured, with darker values for keyboard legibility. -->
+  <g fill="#101B2D" fill-opacity=".35">
+    <rect x="76" y="78" width="42" height="242" rx="6"/>
+    <rect x="140" y="78" width="42" height="242" rx="6"/>
+    <rect x="268" y="78" width="42" height="242" rx="6"/>
+    <rect x="332" y="78" width="42" height="242" rx="6"/>
+    <rect x="396" y="78" width="42" height="242" rx="6"/>
+  </g>
+  <g stroke="#17243A" stroke-width="3">
+    <rect x="75" y="73" width="42" height="239" rx="5" fill="url(#cs)"/>
+    <rect x="139" y="73" width="42" height="239" rx="5" fill="url(#ds)"/>
+    <rect x="267" y="73" width="42" height="239" rx="5" fill="url(#fs)"/>
+    <rect x="331" y="73" width="42" height="239" rx="5" fill="url(#gs)"/>
+    <rect x="395" y="73" width="42" height="239" rx="5" fill="url(#as)"/>
+  </g>
+  <g stroke="#FFFFFF" stroke-opacity=".22" stroke-width="2" stroke-linecap="round">
+    <path d="M82 80H110 M146 80H174 M274 80H302 M338 80H366 M402 80H430"/>
+  </g>
 </svg>
