@@ -2,6 +2,7 @@
 
 #include "../Config.hpp"
 #include "TuningTypes.h"
+#include "../synth/SynthOutput.h"
 #include "NoteNaming.h"
 #include "ScaleTriadAdapting.h"
 #include "MidiControlBinding.h"
@@ -14,6 +15,7 @@
 #include <QVariantList>
 
 class MidiController;
+class IMidiOut;
 class QTimer;
 
 namespace Intona::Tuning
@@ -21,6 +23,7 @@ namespace Intona::Tuning
 
 struct TuningUiSnapshot
 {
+  std::array<double, 12> synthDetunes{};
   int noteNamingMode = 0;
   int edoIndex = 0;
   int edo = 0;
@@ -33,6 +36,8 @@ struct TuningUiSnapshot
   QVariantList circleEntries;
   QVariantList presetEntries;
   int currentPresetIndex = -1;
+  bool internalAudio = false;
+  QString audioError;
   bool retriggerHeldNotes = true;
   bool retuningTestRunning = false;
   bool retuningTestAwaitingAnswer = false;
@@ -117,6 +122,10 @@ public:
     MidiController* midiController,
     QObject* parent = nullptr);
 
+  void setInternalAudio(bool enabled);
+  void setSynthPatch(const Synth::Patch& patch);
+  // The caller owns the engine and must detach before destruction (worker thread).
+  void attachSynth(Synth::AdditiveSynth* synth);
   bool retriggerHeldNotes() const { return retriggerHeldNotes_; }
   void setRetriggerHeldNotes(bool enabled);
   void startRetuningTest();
@@ -179,6 +188,14 @@ signals:
   void tuningStateChanged();
 
 private:
+  IMidiOut* externalOutput() const;
+  void updateSynthTuning();
+  std::array<double, 12> synthDetunes() const;
+  QTimer* audioMonitor_ = nullptr;
+  std::unique_ptr<Synth::SynthOutput> audioOutput_;
+  Synth::AdditiveSynth* synth_ = nullptr;
+  QString audioError_;
+  Synth::Patch synthPatch_;
   MidiController* midiController_ = nullptr;
   bool retriggerHeldNotes_ = true;
   QTimer* retuningTestTimer_ = nullptr;
@@ -214,7 +231,7 @@ private:
   uint64_t nextNoteGeneration_ = 0;
   MidiControlBinding control_;
   std::array<int, 128> forwardedControls_{};
-  bool forwardedPitchBend_ = false;
+  int pitchBend_ = 8192;
   void saveControlBinding();
   void releaseReservedControl();
   void executeControlAction(int polyNote);

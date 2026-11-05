@@ -12,6 +12,11 @@ class TuningViewModel final : public QObject
 {
   Q_OBJECT
 
+  Q_PROPERTY(QVariantMap synthPatch READ synthPatch NOTIFY synthPatchChanged)
+  Q_PROPERTY(QVariantList spectrumPreview READ spectrumPreview NOTIFY spectrumPreviewChanged)
+  Q_PROPERTY(int spectrumNote READ spectrumNote WRITE setSpectrumNote NOTIFY spectrumPreviewChanged)
+  Q_PROPERTY(bool internalAudio READ internalAudio WRITE setInternalAudio NOTIFY tuningStateChanged)
+  Q_PROPERTY(QString audioError READ audioError NOTIFY tuningStateChanged)
   Q_PROPERTY(bool retriggerHeldNotes READ retriggerHeldNotes WRITE setRetriggerHeldNotes NOTIFY tuningStateChanged)
   Q_PROPERTY(bool retuningTestRunning READ retuningTestRunning NOTIFY tuningStateChanged)
   Q_PROPERTY(bool retuningTestAwaitingAnswer READ retuningTestAwaitingAnswer NOTIFY tuningStateChanged)
@@ -42,6 +47,16 @@ public:
     TuningController* worker,
     QObject* parent = nullptr);
 
+  QVariantMap synthPatch() const;
+  QVariantList spectrumPreview() const;
+  int spectrumNote() const { return spectrumNote_; }
+  void setSpectrumNote(int note);
+  Q_INVOKABLE bool setSynthPatch(const QVariantMap& data);
+  Q_INVOKABLE QVariantList synthShapeAmplitudes(int shape) const;
+  Q_INVOKABLE QVariantMap synthShapeData(int shape, double pulseWidth) const;
+  bool internalAudio() const { return state_.internalAudio; }
+  QString audioError() const { return state_.audioError; }
+  void setInternalAudio(bool enabled);
   bool retriggerHeldNotes() const { return state_.retriggerHeldNotes; }
   bool retuningTestRunning() const { return state_.retuningTestRunning; }
   bool retuningTestAwaitingAnswer() const { return state_.retuningTestAwaitingAnswer; }
@@ -95,6 +110,8 @@ public:
 signals:
   void tuningStateChanged();
   void circleEntriesChanged();
+  void synthPatchChanged();
+  void spectrumPreviewChanged();
   void pressedKeysChanged();
 
 private:
@@ -103,6 +120,8 @@ private:
 
   TuningController* worker_ = nullptr;
   TuningUiSnapshot state_;
+  Synth::Patch patch_;
+  int spectrumNote_ = 69;
   std::atomic_uint64_t requestedRevision_{0};
   std::atomic_bool refreshPosted_{false};
 };

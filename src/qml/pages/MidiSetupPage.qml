@@ -46,6 +46,7 @@ Rectangle {
                      : SharedUi.Theme.pageSpacing
 
             SharedUi.FormSection {
+                objectName: "midiInputPanel"
                 title: qsTr("MIDI IN")
 
                 Layout.fillWidth: true
@@ -89,7 +90,10 @@ Rectangle {
             }
 
             SharedUi.FormSection {
-                title: qsTr("MIDI OUT")
+                objectName: "midiOutputPanel"
+                enabled: !TuningController.internalAudio
+                opacity: enabled ? 1 : 0.5
+                title: enabled ? qsTr("MIDI OUT") : qsTr("MIDI OUT · Internal synth active")
 
                 Layout.fillWidth: true
                 Layout.fillHeight: true

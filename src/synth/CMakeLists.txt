@@ -1,0 +1,20 @@
+# Audio must meet its playback deadline even when the app runs under a debugger.
+# Keep symbols and the Debug CRT; change flags only in this directory.
+if(MSVC)
+  string(REGEX REPLACE "[-/]RTC[1su]+" "" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
+endif()
+add_library(IntonaSynth STATIC AdditiveSynth.cpp PatchData.cpp)
+target_link_libraries(IntonaSynth PRIVATE Qt6::Core)
+if(MSVC)
+  set_property(SOURCE AdditiveSynth.cpp APPEND PROPERTY COMPILE_OPTIONS
+    "$<$<CONFIG:Debug>:/O2>" "$<$<CONFIG:Debug>:/Ob2>")
+endif()
+if(WIN32)
+  target_sources(IntonaSynth PRIVATE SynthOutputWindows.cpp)
+  target_link_libraries(IntonaSynth PRIVATE ole32 avrt)
+else()
+  target_sources(IntonaSynth PRIVATE SynthOutput.cpp)
+  if(ANDROID)
+    target_link_libraries(IntonaSynth PRIVATE aaudio)
+  endif()
+endif()

@@ -789,6 +789,8 @@ void viewModelNotificationTests()
   worker->selectTuningCenter(0);
   worker->setNoteNamingMode(0);
   TuningViewModel model(worker);
+  model.setSpectrumNote(64);
+  const double previewBefore = model.spectrumPreview().first().toMap().value("hz").toDouble();
   int circleChanges = 0, pressedChanges = 0;
   QObject::connect(&model, &TuningViewModel::circleEntriesChanged, [&]() { ++circleChanges; });
   QObject::connect(&model, &TuningViewModel::pressedKeysChanged, [&]() { ++pressedChanges; });
@@ -809,6 +811,11 @@ void viewModelNotificationTests()
   const bool renamed = until([&]() { return model.keyNames()[4] == "Fb"; });
   const bool tuningSignals = circleChanges == 1 && pressedChanges == 1 &&
                              model.pressedKeys()[4].toBool();
+  const double previewAfter = model.spectrumPreview().first().toMap().value("hz").toDouble();
+  TuningUiSnapshot previewSnapshot;
+  QMetaObject::invokeMethod(worker, [&]() { previewSnapshot = worker->uiSnapshot(); }, Qt::BlockingQueuedConnection);
+  const double expectedHz = 440 * std::exp2((64 - 69 + previewSnapshot.synthDetunes[4] / 100.) / 12.);
+  const bool previewTracksTuning = previewBefore != previewAfter && std::abs(previewAfter - expectedHz) < 1e-9;
   if (!renamed || !tuningSignals)
     std::cerr << "UI retune: name=" << model.keyNames()[4].toStdString()
               << " circle=" << circleChanges << " pressed=" << pressedChanges
@@ -819,13 +826,111 @@ void viewModelNotificationTests()
   model.requestInitialRefresh();
   wait(20);
   const bool unchangedSignals = circleChanges == 1 && pressedChanges == 2;
+  auto previewPatch = model.synthPatch();
+  previewPatch["spectrum"] = 1; previewPatch["shape"] = 3;
+  previewPatch["amplitudes"] = model.synthShapeAmplitudes(3);
+  const bool previewPatchAccepted = model.setSynthPatch(previewPatch);
+  for (int i = 0; i < int(kNtetMappings.size()); ++i)
+    if (kNtetMappings[i].N == 19) model.setEdoIndex(i);
+  const bool previewEdo = until([&]() { return model.edo() == 19; });
+  const auto previewRows = model.spectrumPreview();
+  const bool previewGrid = previewRows.size() == 48 && std::all_of(previewRows.begin(), previewRows.end(), [](const QVariant& row) {
+    return std::abs(row.toMap().value("gridCents").toDouble()) < 1e-8;
+  });
   thread.quit();
   thread.wait();
   require(held && onsetSignals, "A key press updates the keyboard without refreshing circle entries");
   require(renamed && tuningSignals, "Retuning refreshes circle names without clearing the physical key");
   require(released && releaseSignals && unchangedSignals,
           "Releases and unchanged snapshots do not refresh circle entries");
+  require(previewTracksTuning && previewPatchAccepted && previewEdo && previewGrid,
+          "Spectrum preview follows keyboard offsets, patch edits and queued EDO changes");
   std::cout << "PASS: queued UI notifications update only changed circle/key states.\n";
+}
+void additiveRoutingTests()
+{
+  auto replayIo = [](bool internal) {
+    QSettings settings(QSettings::defaultFormat(), QSettings::UserScope, "NaadaLab", "Intona");
+    settings.clear(); // Test suite uses an isolated temporary INI directory.
+    auto* output = new Output;
+    MidiController midi{std::unique_ptr<IMidiOut>(output), 0x8101};
+    Intona::Synth::AdditiveSynth audio(48000);
+    TuningController controller(&midi);
+    if (internal) controller.attachSynth(&audio);
+    auto sounding = [&]() {
+      std::array<float, 2048> pcm;
+      audio.render(pcm.data(), int(pcm.size()));
+      return std::any_of(pcm.begin(), pcm.end(), [](float s) { return std::abs(s) > .01f; });
+    };
+    controller.selectTuningCenter(2);
+    for (int note : {68, 65, 60}) midi.midiNoteOnReceived(note, 92, 100);
+    require(sounding() == internal, "Only internal sink produces PCM");
+    controller.captureCurrentPreset();
+    controller.selectTuningCenter(0);
+    controller.applyPreset(0);
+    require(sounding() == internal, "Held voices survive a preset change");
+    midi.midiChannelMessageReceived(0xb0, 64, 127, 125);
+    for (int note : {68, 65}) midi.midiNoteOffReceived(note, 23, 126);
+    controller.setEdoIndex(0);
+    midi.midiNoteOffReceived(60, 17, 150);
+    for (int i = 0; i < 5; ++i)
+      require(sounding() == internal, "Pedal-held audio survives EDO change");
+    midi.midiChannelMessageReceived(0xb0, 64, 0, 240);
+    for (int i = 0; i < 4; ++i) sounding();
+    require(!sounding(), "No hanging audio after pedal release");
+    midi.midiNoteOnReceived(64, 90, 260);
+    require(sounding() == internal, "Physical key sounds before EDO change");
+    controller.setEdoIndex(1);
+    for (int i = 0; i < 4; ++i)
+      require(sounding() == internal, "Held key remains audible across EDO without pedal");
+    midi.midiNoteOffReceived(64, 0, 500);
+    for (int i = 0; i < 4; ++i) sounding();
+    require(!sounding(), "Original key releases its voice after EDO change");
+    std::vector<int> trace;
+    for (auto msg : output->messages) {
+      trace.push_back(msg.status); trace.push_back(msg.note); trace.push_back(msg.velocity);
+    }
+    return std::make_pair(trace, output->sysexes);
+  };
+  const auto external = replayIo(false);
+  const auto internalOnly = replayIo(true);
+  require(!external.first.empty() && !external.second.empty() &&
+    internalOnly.first.empty() && internalOnly.second.empty(),
+    "Internal route suppresses external notes, CCs, RPN and MTS");
+
+  auto* output = new Output;
+  MidiController switched{std::unique_ptr<IMidiOut>(output), 1};
+  Intona::Synth::AdditiveSynth heldAudio(48000);
+  TuningController route(&switched);
+  switched.midiNoteOnReceived(69, 80, 1000);
+  switched.midiChannelMessageReceived(0xb0, 64, 127, 1001);
+  output->messages.clear();
+  route.attachSynth(&heldAudio);
+  require(output->messages.size() == 2 && output->messages[0].note == 64 &&
+          output->messages[0].velocity == 0 && output->messages[1].status == 0x80,
+          "Switch releases external sustain and the held note");
+  output->messages.clear();
+  route.setEdoIndex(route.edoIndex() == 0 ? 1 : 0);
+  route.startRetuningTest();
+  require(output->messages.empty(), "No external tuning probe on internal route");
+  route.attachSynth(nullptr);
+  require(!output->sysexes.empty() && output->messages.back().status == 0x90 &&
+          output->messages.back().note == 69 && output->messages.back().velocity == 80,
+          "Switch back restores tuning and held note");
+  switched.midiNoteOffReceived(69, 0, 1500);
+  switched.midiChannelMessageReceived(0xb0, 64, 0, 1501);
+
+  MidiController midi{std::unique_ptr<IMidiOut>{}, 1};
+  Intona::Synth::AdditiveSynth audio(48000);
+  TuningController controller(&midi);
+  controller.attachSynth(&audio);
+  midi.midiNoteOnReceived(69, 100, 10);
+  std::array<float, 8000> pcm;
+  audio.render(pcm.data(), int(pcm.size()));
+  require(*std::max_element(pcm.begin(), pcm.end()) > .02, "Audio without MIDI output");
+  midi.midiNoteOffReceived(69, 0, 20);
+  audio.render(pcm.data(), int(pcm.size()));
+  require(pcm.back() == 0, "Note Off without MIDI output");
 }
 } // namespace
 int main(int argc, char **argv)
@@ -851,6 +956,7 @@ int main(int argc, char **argv)
       assignableControlTests();
       controlRetriggerTests();
       viewModelNotificationTests();
+      additiveRoutingTests();
     }
   }
   catch (const std::exception &ex)

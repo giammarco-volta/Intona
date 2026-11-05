@@ -1,4 +1,5 @@
 #include "TuningController.h"
+#include "../CentsUtilities.hpp"
 #include "TuningAlgorithms.h"
 #include "TuningMidiOutput.h"
 #include "RelativeKeyboard.h"
@@ -32,6 +33,16 @@ TuningController::TuningController(
        "useScaleMapAdapting", "dirtyNoteThresholdMs", "historyWindowIntervals",
        "historyDecaySlope", "chromaticCost"}) settings.remove(obsolete);
 
+  audioMonitor_ = new QTimer(this);
+  audioMonitor_->setInterval(500);
+  connect(audioMonitor_, &QTimer::timeout, this, [this]() {
+    audioError_ = audioOutput_->deviceError();
+    if (audioError_.isEmpty()) return;
+    audioMonitor_->stop();
+    attachSynth(nullptr);
+    audioOutput_.reset();
+    emit tuningStateChanged();
+  });
   scaleVerificationTimer_ = new QTimer(this);
   scaleVerificationTimer_->setSingleShot(true);
   scaleVerificationTimer_->setTimerType(Qt::PreciseTimer);
@@ -69,6 +80,20 @@ TuningController::TuningController(
   saveControlBinding(); // One-time migration, including the old misspelled threshold key.
   connect(midiController_, &MidiController::midiInPortChanged, this, [this]() { control_.clearInput(); });
   connect(midiController_, &MidiController::midiInChannelChanged, this, [this]() { control_.clearInput(); });
+
+  const auto resetSynthInput = [this]() {
+    if (synth_) {
+      synth_->silence();
+      activeNotes_.clear();
+      rebuildPressedKeys();
+      resetAdaptiveState();
+      for (int cc : {64, 66, 69}) forwardedControls_[cc] = 0;
+      pitchBend_ = 8192;
+      emit tuningStateChanged();
+    }
+  };
+  connect(midiController_, &MidiController::midiInPortChanged, this, resetSynthInput);
+  connect(midiController_, &MidiController::midiInChannelChanged, this, resetSynthInput);
 
   if (savedEdoIndex < 0
     || savedEdoIndex >= int(kNtetMappings.size()))
@@ -182,14 +207,14 @@ void TuningController::setEdoIndex(int index)
   if (edoIndex_ == index)
     return;
 
-  if (!activeNotes_.empty())
+  if (!synth_ && !activeNotes_.empty())
   {
     sendAllNotesOff();
     activeNotes_.clear();
   }
 
   edoIndex_ = index;
-  keyPressedMask12_ = 0;
+  rebuildPressedKeys();
 
   const NtetMapping& mapping =
     kNtetMappings[edoIndex_];
@@ -368,7 +393,7 @@ void TuningController::applySteppedConfig(const Config& candidate, bool retrigge
 {
   if (candidate.valueForKey == currentConfig_.valueForKey) return;
   const auto& mapping = kNtetMappings[edoIndex_];
-  auto* out = midiController_->midiOut();
+  auto* out = externalOutput();
   const auto channels = midiController_->midiOutChannelMask();
   std::vector<ActiveNote> restart;
   if (out && retrigger && retriggerHeldNotes_)
@@ -782,7 +807,7 @@ void TuningController::releaseReservedControl()
   // Avoid leaving a native sustain/sostenuto active when its release is captured.
   if ((cc == 64 || cc == 66 || cc == 69) && forwardedControls_[cc] >= 64)
     forwardControlMessage(0xb0, cc, 0);
-  if ((control_.source == 2 || control_.source == 3) && forwardedPitchBend_)
+  if ((control_.source == 2 || control_.source == 3) && pitchBend_ != 8192)
     forwardControlMessage(0xe0, 0, 64);
 }
 
@@ -801,6 +826,9 @@ QVariantList TuningController::pressedKeys() const
 TuningUiSnapshot TuningController::uiSnapshot() const
 {
   TuningUiSnapshot snapshot;
+  snapshot.synthDetunes = synthDetunes();
+  snapshot.internalAudio = synth_ != nullptr;
+  snapshot.audioError = audioError_;
   snapshot.retriggerHeldNotes = retriggerHeldNotes_;
   snapshot.retuningTestRunning = retuningTestStage_ != 0;
   snapshot.retuningTestAwaitingAnswer = retuningTestAwaitingAnswer_;
@@ -827,14 +855,93 @@ TuningUiSnapshot TuningController::uiSnapshot() const
   return snapshot;
 }
 
+IMidiOut* TuningController::externalOutput() const
+{
+  return synth_ ? nullptr : midiController_->midiOut();
+}
+
+std::array<double, 12> TuningController::synthDetunes() const
+{
+  const auto& mapping = kNtetMappings[edoIndex_];
+  std::array<double, 12> offsets;
+  for (int key = 0; key < 12; ++key)
+    offsets[key] = keyboardRawOffset(key, currentConfig_, mapping.N,
+      mapping.fifthStep, currentGlobalOffsetCents_);
+  return offsets;
+}
+
+void TuningController::updateSynthTuning()
+{
+  if (synth_) synth_->setTuning(kNtetMappings[edoIndex_].N, synthDetunes());
+}
+
+void TuningController::attachSynth(Synth::AdditiveSynth* synth)
+{
+  if (synth_ == synth) return;
+  const auto channels = midiController_->midiOutChannelMask();
+  if (synth_) synth_->silence();
+  else {
+    cancelRetuningTest();
+    if (auto* out = externalOutput()) {
+      for (int ch = 0; ch < 16; ++ch) if (channels & (1u << ch)) {
+        for (int cc : {64, 66, 69})
+          if (forwardedControls_[cc] >= 64) sendChannelMessage(*out, ch, 0xb0, cc, 0);
+        for (const auto& note : activeNotes_) sendNoteOff(*out, ch, note.midiNote, 0);
+      }
+    }
+  }
+  synth_ = synth;
+  if (synth_) {
+    synth_->setPatch(synthPatch_);
+    updateSynthTuning();
+    synth_->sustain(forwardedControls_[64] >= 64);
+    for (const auto& note : activeNotes_) synth_->noteOn(note.midiNote, note.velocity);
+  } else if (auto* out = externalOutput()) {
+    sendCurrentTuning(true);
+    for (int ch = 0; ch < 16; ++ch) if (channels & (1u << ch)) {
+      for (int cc : {64, 66, 69}) sendChannelMessage(*out, ch, 0xb0, cc, forwardedControls_[cc]);
+      sendChannelMessage(*out, ch, 0xe0, pitchBend_ & 127, pitchBend_ >> 7);
+      for (const auto& note : activeNotes_) sendNoteOn(*out, ch, note.midiNote, note.velocity);
+    }
+  }
+}
+
+void TuningController::setSynthPatch(const Synth::Patch& patch)
+{
+  if (!patch.valid()) return;
+  synthPatch_ = patch;
+  if (synth_) synth_->setPatch(patch);
+}
+
+void TuningController::setInternalAudio(bool enabled)
+{
+  if (enabled) {
+    if (audioOutput_) return;
+    auto output = std::make_unique<Synth::SynthOutput>();
+    audioError_ = output->start();
+    if (audioError_.isEmpty()) {
+      audioOutput_ = std::move(output);
+      attachSynth(&audioOutput_->engine);
+      audioMonitor_->start();
+    }
+  } else {
+    audioMonitor_->stop();
+    attachSynth(nullptr);
+    audioOutput_.reset();
+    audioError_.clear();
+  }
+  emit tuningStateChanged();
+}
+
 void TuningController::sendCurrentTuning(
   bool sendGlobalOffset)
 {
+  updateSynthTuning();
   cancelRetuningTest();
   if (!midiController_)
     return;
 
-  IMidiOut* out = midiController_->midiOut();
+  IMidiOut* out = externalOutput();
   if (!out)
     return;
 
@@ -874,7 +981,7 @@ void TuningController::startRetuningTest()
 {
   if (retuningTestStage_) return;
   retuningTestAwaitingAnswer_ = false;
-  auto* out = midiController_->midiOut();
+  auto* out = externalOutput();
   const auto channels = uint16_t(midiController_->midiOutChannelMask());
   if (!out || !channels || !activeNotes_.empty())
   {
@@ -921,7 +1028,7 @@ void TuningController::advanceRetuningTest()
     auto changed = retuningTestTable_;
     // An 80-cent change within MTS's +/-100-cent range, on C only.
     changed[0] = uint16_t(int(changed[0]) + (changed[0] <= 8192 ? 6554 : -6554));
-    if (!sendTuningTable(*midiController_->midiOut(), retuningTestChannels_, changed))
+    if (!sendTuningTable(*externalOutput(), retuningTestChannels_, changed))
     {
       finishRetuningTest(false);
       retuningTestMessage_ = tr("Unable to send the tuning change. Check the MIDI output connection.");
@@ -943,7 +1050,7 @@ void TuningController::finishRetuningTest(bool completed)
 {
   retuningTestTimer_->stop();
   retuningTestStage_ = 0;
-  if (auto* out = midiController_->midiOut())
+  if (auto* out = externalOutput())
   {
     for (int channel = 0; channel < 16; ++channel)
       if (retuningTestChannels_ & (uint16_t{1} << channel))
@@ -975,8 +1082,8 @@ void TuningController::handleMidiNoteOn(int note, int velocity, quint32 timeMs)
     handleMidiNoteOff(note, 0, timeMs);
     return;
   }
-  IMidiOut* out = midiController_->midiOut();
-  if (!out)
+  IMidiOut* out = externalOutput();
+  if (!out && !synth_)
     return;
   cancelRetuningTest();
   observeEventClock(timeMs);
@@ -999,8 +1106,9 @@ void TuningController::handleMidiNoteOn(int note, int velocity, quint32 timeMs)
   }
   arriving.interpretedValue = currentConfig_.valueForKey[arriving.key];
   activeNotes_.push_back(arriving);
+  if (synth_) synth_->noteOn(note, velocity);
   rebuildPressedKeys();
-  const auto channels = midiController_->midiOutChannelMask();
+  const auto channels = out ? midiController_->midiOutChannelMask() : 0;
   for (int channel = 0; channel < 16; ++channel)
     if (channels & (quint32{1} << channel))
       sendNoteOn(*out, static_cast<uint8_t>(channel), arriving.midiNote, arriving.velocity);
@@ -1012,12 +1120,13 @@ void TuningController::handleMidiNoteOff(int note, int velocity, quint32 timeMs)
 {
   if (note < 0 || note > 127 || velocity < 0 || velocity > 127)
     return;
-  IMidiOut* out = midiController_->midiOut();
-  if (!out)
+  IMidiOut* out = externalOutput();
+  if (!out && !synth_)
     return;
   cancelRetuningTest();
   observeEventClock(timeMs);
 
+  if (synth_) synth_->noteOff(note);
   control_.releaseNote(note);
   const auto active = std::find_if(activeNotes_.begin(), activeNotes_.end(),
     [note](const ActiveNote& held) { return held.midiNote == note; });
@@ -1026,7 +1135,7 @@ void TuningController::handleMidiNoteOff(int note, int velocity, quint32 timeMs)
     if (adaptingEnabled_) scaleTriads_.noteOff(active->generation, eventNow());
     activeNotes_.erase(active);
   }
-  const auto channels = midiController_->midiOutChannelMask();
+  const auto channels = out ? midiController_->midiOutChannelMask() : 0;
   for (int channel = 0; channel < 16; ++channel)
     if (channels & (quint32{1} << channel))
       sendNoteOff(*out, static_cast<uint8_t>(channel), static_cast<uint8_t>(note), static_cast<uint8_t>(velocity));
@@ -1085,11 +1194,27 @@ void TuningController::handleMidiChannelMessage(int code, int data1, int data2)
 
 void TuningController::forwardControlMessage(int code, int data1, int data2)
 {
-  auto* out = midiController_->midiOut();
-  if (!out) return;
+  auto* out = externalOutput();
+  if (synth_ && code == 0xb0) {
+    if (data1 == 64) synth_->sustain(data2 >= 64);
+    if (data1 == 120) synth_->silence();
+    if (data1 == 121) synth_->sustain(false);
+    if (data1 == 123) synth_->allNotesOff();
+    if (data1 == 120 || data1 == 123) {
+      activeNotes_.clear();
+      rebuildPressedKeys();
+      resetAdaptiveState();
+      emit tuningStateChanged();
+    }
+  }
+  if (!out && !synth_) return;
   if (code == 0xb0) forwardedControls_[data1] = data2;
-  if (code == 0xe0) forwardedPitchBend_ = data1 != 0 || data2 != 64;
-  const auto channels = midiController_->midiOutChannelMask();
+  if (code == 0xe0) pitchBend_ = data1 + 128 * data2;
+  if (code == 0xb0 && data1 == 121) {
+    pitchBend_ = 8192;
+    for (int cc : {64, 66, 69}) forwardedControls_[cc] = 0;
+  }
+  const auto channels = out ? midiController_->midiOutChannelMask() : 0;
   for (int channel = 0; channel < 16; ++channel)
     if (channels & (quint32{1} << channel))
       sendChannelMessage(*out, uint8_t(channel), uint8_t(code), uint8_t(data1), uint8_t(data2));
@@ -1129,13 +1254,13 @@ void TuningController::applyScaleConfig()
   const auto candidate = scaleTriads_.config();
   if (candidate.valueForKey == currentConfig_.valueForKey
     && candidate.tuningCenter == currentConfig_.tuningCenter) return;
-  auto* out = midiController_->midiOut();
-  if (!out) return;
+  auto* out = externalOutput();
+  if (!out && !synth_) return;
   const auto& mapping = kNtetMappings[edoIndex_];
   const auto channels = midiController_->midiOutChannelMask();
   std::vector<ActiveNote> retrigger;
   for (const auto& note : activeNotes_)
-    if (retriggerHeldNotes_ && mod((candidate.valueForKey[note.key] - note.interpretedValue) * mapping.fifthStep, mapping.N) != 0)
+    if (out && retriggerHeldNotes_ && mod((candidate.valueForKey[note.key] - note.interpretedValue) * mapping.fifthStep, mapping.N) != 0)
       retrigger.push_back(note);
   for (const auto& note : retrigger)
     for (int channel=0; channel<16; ++channel) if (channels & (quint32{1} << channel))
@@ -1165,7 +1290,7 @@ bool TuningController::adoptConfig(
 
   currentGlobalOffsetCents_ = *offset;
 
-  if (IMidiOut* out = midiController_->midiOut())
+  if (IMidiOut* out = externalOutput())
   {
     sendRpnCoarseFineTuning(
       *out,
@@ -1179,7 +1304,7 @@ bool TuningController::adoptConfig(
 
 void TuningController::sendAllNotesOff()
 {
-  IMidiOut* out = midiController_->midiOut();
+  IMidiOut* out = externalOutput();
   if (!out)
     return;
 

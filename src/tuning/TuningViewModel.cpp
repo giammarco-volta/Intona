@@ -1,6 +1,8 @@
 #include "TuningViewModel.h"
+#include "../synth/PatchData.h"
 
 #include <QMetaObject>
+#include <cmath>
 
 namespace Intona::Tuning
 {
@@ -12,6 +14,8 @@ TuningViewModel::TuningViewModel(
     worker_(worker),
     state_(worker->uiSnapshot())
 {
+  connect(this, &TuningViewModel::tuningStateChanged, this, &TuningViewModel::spectrumPreviewChanged);
+  connect(this, &TuningViewModel::synthPatchChanged, this, &TuningViewModel::spectrumPreviewChanged);
   connect(
     worker_,
     &TuningController::tuningStateChanged,
@@ -20,6 +24,42 @@ TuningViewModel::TuningViewModel(
     Qt::DirectConnection);
 }
 
+
+QVariantMap TuningViewModel::synthPatch() const { return Synth::patchData(patch_); }
+QVariantList TuningViewModel::synthShapeAmplitudes(int shape) const { return Synth::shapeAmplitudes(shape); }
+QVariantMap TuningViewModel::synthShapeData(int shape, double width) const { return Synth::shapeData(shape, float(width)); }
+
+QVariantList TuningViewModel::spectrumPreview() const
+{
+  const double hz = 440 * std::exp2((spectrumNote_ - 69 + state_.synthDetunes[spectrumNote_ % 12] / 100.) / 12.);
+  return Synth::spectrumData(patch_, state_.edo, hz);
+}
+
+void TuningViewModel::setSpectrumNote(int note)
+{
+  if (note < 0 || note > 127 || spectrumNote_ == note) return;
+  spectrumNote_ = note;
+  emit spectrumPreviewChanged();
+}
+
+bool TuningViewModel::setSynthPatch(const QVariantMap& data)
+{
+  const auto patch = Synth::readPatch(data);
+  if (!patch) return false;
+  patch_ = *patch;
+  QMetaObject::invokeMethod(worker_, [worker = worker_, value = *patch]() {
+    worker->setSynthPatch(value);
+  }, Qt::QueuedConnection);
+  emit synthPatchChanged();
+  return true;
+}
+
+void TuningViewModel::setInternalAudio(bool enabled)
+{
+  QMetaObject::invokeMethod(worker_, [worker = worker_, enabled]() {
+    worker->setInternalAudio(enabled);
+  }, Qt::QueuedConnection);
+}
 
 void TuningViewModel::setRetriggerHeldNotes(bool enabled)
 {

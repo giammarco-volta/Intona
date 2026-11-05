@@ -53,6 +53,11 @@ Item {
             icon: "tuning"
         },
         {
+            section: "synth",
+            name: qsTr("Synthesizer"),
+            icon: "tracks"
+        },
+        {
             section: "midi",
             name: qsTr("MIDI Setup"),
             icon: "midi"
@@ -75,20 +80,7 @@ Item {
     ]
 
     function sectionIndex(section) {
-        switch (section) {
-        case "surface":
-            return 0
-        case "midi":
-            return 1
-        case "settings":
-            return 2
-        case "manual":
-            return 3
-        case "about":
-            return 4
-        default:
-            return 0
-        }
+        return Math.max(0, sections.findIndex(item => item.section === section))
     }
 
     RowLayout {
@@ -183,6 +175,8 @@ Item {
 
             TuningSurfacePage {
             }
+
+            SynthPage { }
 
             MidiSetupPage {
             }

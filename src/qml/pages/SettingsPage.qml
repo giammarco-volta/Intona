@@ -131,6 +131,7 @@ Rectangle {
                     }
                     Button {
                         objectName: "retuningTestButton"
+                        enabled: !TuningController.internalAudio
                         text: TuningController.retuningTestRunning ? qsTr("Stop test") : qsTr("Test held-note tuning")
                         onClicked: {
                             testAnswer.text = ""

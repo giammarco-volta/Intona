@@ -39,6 +39,8 @@ if(QT_KNOWN_POLICY_QTP0005)
   qt_policy(SET QTP0005 NEW)
 endif()
 
+add_subdirectory(src/synth)
+
 set(INTONA_SOURCES
   src/main.cpp
   src/StoreScreenshot.h
@@ -103,11 +105,14 @@ qt_add_qml_module(Intona
   QML_FILES
     src/qml/Main.qml
     src/qml/navigation/NavigationShell.qml
+    src/qml/controls/EnvelopeEditor.qml
+    src/qml/controls/SpectrumView.qml
     src/qml/controls/MidiChannelGrid.qml
 	src/qml/controls/TuningCircle.qml
     src/qml/controls/TuningKeyboard.qml
     src/qml/pages/MidiSetupPage.qml
     src/qml/pages/SettingsPage.qml
+    src/qml/pages/SynthPage.qml
     src/qml/pages/TuningSurfacePage.qml
     src/qml/pages/UserManualPage.qml
     src/qml/pages/AboutPage.qml
@@ -155,6 +160,7 @@ qt_add_resources(Intona IntonaResources
 )
 
 target_link_libraries(Intona PRIVATE
+  IntonaSynth
   NaadaLab::Midi
   NaadaLab::Ui
   NaadaLab::Manual
@@ -199,16 +205,20 @@ qt_finalize_executable(Intona)
 option(INTONA_BUILD_TESTS "Build note naming regression tests" OFF)
 if(INTONA_BUILD_TESTS)
   enable_testing()
+  add_executable(IntonaSynthTests tests/AdditiveSynthTests.cpp)
+  target_include_directories(IntonaSynthTests PRIVATE src)
+  target_link_libraries(IntonaSynthTests PRIVATE IntonaSynth Qt6::Core)
+  add_test(NAME IntonaAdditiveSynth COMMAND IntonaSynthTests)
   set(INTONA_TEST_SOURCES ${INTONA_SOURCES})
   list(REMOVE_ITEM INTONA_TEST_SOURCES src/main.cpp src/StoreScreenshot.h)
   add_executable(IntonaNamingTests tests/NoteNamingTests.cpp tests/KeyboardMappingTests.cpp tests/RelativeKeyboardTests.cpp ${INTONA_TEST_SOURCES})
   target_include_directories(IntonaNamingTests PRIVATE src)
-  target_link_libraries(IntonaNamingTests PRIVATE NaadaLab::Midi Qt6::Core)
+  target_link_libraries(IntonaNamingTests PRIVATE IntonaSynth NaadaLab::Midi Qt6::Core)
   add_test(NAME IntonaNoteNaming COMMAND IntonaNamingTests)
   add_executable(IntonaScaleTriadTests tests/ScaleTriadTests.cpp ${INTONA_TEST_SOURCES})
   target_include_directories(IntonaScaleTriadTests PRIVATE src)
   target_compile_definitions(IntonaScaleTriadTests PRIVATE INTONA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-  target_link_libraries(IntonaScaleTriadTests PRIVATE NaadaLab::Midi Qt6::Core)
+  target_link_libraries(IntonaScaleTriadTests PRIVATE IntonaSynth NaadaLab::Midi Qt6::Core)
   add_test(NAME IntonaScaleTriads COMMAND IntonaScaleTriadTests)
   add_executable(IntonaMidiRecordingTests tests/MidiRecordingTests.cpp
     src/midi/MidiEventRecorder.h src/midi/MidiEventRecorder.cpp)
@@ -225,7 +235,7 @@ if(INTONA_BUILD_TESTS)
   target_include_directories(IntonaSettingsPageTests PRIVATE src)
   target_compile_definitions(IntonaSettingsPageTests PRIVATE
     INTONA_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
-  target_link_libraries(IntonaSettingsPageTests PRIVATE NaadaLab::Ui Qt6::QuickControls2)
+  target_link_libraries(IntonaSettingsPageTests PRIVATE IntonaSynth NaadaLab::Ui Qt6::QuickControls2)
   add_test(NAME IntonaSettingsPage COMMAND IntonaSettingsPageTests)
   add_test(NAME IntonaStartup COMMAND Intona --startup-check -platform offscreen)
   set_tests_properties(IntonaStartup PROPERTIES TIMEOUT 20)
